@@ -1,6 +1,13 @@
 import { SpeedTestViewModel } from '../viewmodel/SpeedTestViewModel';
 import { Ndt7State } from '@mlab/ndt7-ohos';
 import { ScreenAwakeManager } from '../utils/ScreenAwakeManager';
+import {
+  ArcButton,
+  ArcButtonOptions,
+  ArcButtonPosition,
+  ArcButtonStyleMode,
+  ColorMetrics
+} from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -23,136 +30,202 @@ struct MainPage {
   }
 
   build() {
-    Column() {
-      // 1. Header & State Badge (Wearable Safe Inset Top: ~20px)
-      Text('NDT7 Test Harness')
-        .fontSize(13)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
-        .margin({ top: 20, bottom: 2 })
-
-      Text(`State: ${this.viewModel.state}`)
-        .fontSize(10)
-        .fontColor(this.getStateColor(this.viewModel.state))
-        .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-        .backgroundColor('#222222')
-        .borderRadius(10)
-        .margin({ bottom: 4 })
-
-      // 2. Metrics Card
-      Row() {
-        Column() {
-          Text('↓ DOWNLOAD')
-            .fontSize(9)
-            .fontColor('#888888')
-          Text(`${this.viewModel.downloadMbps.toFixed(1)}`)
-            .fontSize(17)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#00E5FF')
-          Text('Mbps')
-            .fontSize(8)
-            .fontColor('#AAAAAA')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
-
-        Divider()
-          .vertical(true)
-          .height(30)
-          .color('#333333')
-
-        Column() {
-          Text('↑ UPLOAD')
-            .fontSize(9)
-            .fontColor('#888888')
-          Text(`${this.viewModel.uploadMbps.toFixed(1)}`)
-            .fontSize(17)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#00E676')
-          Text('Mbps')
-            .fontSize(8)
-            .fontColor('#AAAAAA')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
-      }
-      .width('80%')
-      .padding(4)
-      .backgroundColor('#161616')
-      .borderRadius(12)
-      .margin({ bottom: 4 })
-
-      // 3. Diagnostics & Server Info
-      Row() {
-        Text(`RTT: ${this.viewModel.latencyMs > 0 ? this.viewModel.latencyMs + ' ms' : '--'}`)
-          .fontSize(8)
-          .fontColor('#CCCCCC')
-          .margin({ right: 8 })
-
-        Text(`Retrans: ${this.viewModel.retransPercent > 0 ? this.viewModel.retransPercent + '%' : '--'}`)
-          .fontSize(8)
-          .fontColor('#CCCCCC')
-      }
-      .margin({ bottom: 2 })
-
-      Text(this.viewModel.serverName ? `Server: ${this.viewModel.serverName}` : 'Server: Auto')
-        .fontSize(8)
-        .fontColor('#888888')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('75%')
-        .textAlign(TextAlign.Center)
-        .margin({ bottom: 4 })
-
-      // 4. Action Button (Start / Cancel)
-      if (this.viewModel.isRunning()) {
-        Button('Cancel Test')
-          .width('65%')
-          .height(28)
-          .fontSize(11)
-          .backgroundColor('#D50000')
+    Stack({ alignContent: Alignment.Bottom }) {
+      // Main Center Content
+      Column() {
+        // 1. App Title
+        Text('NDT7 SPEEDTEST')
+          .fontSize(14)
+          .fontWeight(FontWeight.Bold)
           .fontColor('#FFFFFF')
-          .borderRadius(14)
-          .onClick(() => {
-            this.viewModel.cancelSpeedTest();
-          })
-      } else {
-        Button('Start Test')
-          .width('65%')
-          .height(28)
-          .fontSize(11)
-          .backgroundColor('#00B0FF')
-          .fontColor('#000000')
-          .fontWeight(FontWeight.Medium)
-          .borderRadius(14)
-          .onClick(() => {
-            this.viewModel.startSpeedTest(getContext(this));
-          })
-      }
+          .margin({ top: 26, bottom: 4 })
 
-      // 5. Diagnostic Log Area (Wearable Safe Inset Bottom: ~16px)
-      List() {
-        ForEach(this.viewModel.logs, (logLine: string, index: number) => {
-          ListItem() {
-            Text(logLine)
-              .fontSize(7.5)
-              .fontColor('#9E9E9E')
-              .fontFamily('monospace')
+        // 2. Status Capsule Badge
+        Text(this.getStatusLabel())
+          .fontSize(10)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.getStateColor(this.viewModel.state))
+          .padding({ left: 10, right: 10, top: 3, bottom: 3 })
+          .backgroundColor('#1A1A1E')
+          .borderRadius(12)
+          .margin({ bottom: 10 })
+
+        // 3. Main Speed Dual Card
+        Row() {
+          // Download Column
+          Column() {
+            Row() {
+              Text('↓')
+                .fontSize(11)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#00E5FF')
+                .margin({ right: 2 })
+              Text('DOWNLOAD')
+                .fontSize(9)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#8E8E93')
+            }
+
+            Text(`${this.viewModel.downloadMbps.toFixed(1)}`)
+              .fontSize(22)
+              .fontWeight(FontWeight.Bolder)
+              .fontColor(this.viewModel.state === Ndt7State.DOWNLOAD_RUNNING ? '#00E5FF' : '#FFFFFF')
+              .margin({ top: 2, bottom: 1 })
+
+            Text('Mbps')
+              .fontSize(9)
+              .fontColor('#8E8E93')
           }
-        }, (logLine: string, index: number) => `${index}_${logLine}`)
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Center)
+
+          // Vertical Divider
+          Divider()
+            .vertical(true)
+            .height(44)
+            .color('#2C2C2E')
+
+          // Upload Column
+          Column() {
+            Row() {
+              Text('↑')
+                .fontSize(11)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#00E676')
+                .margin({ right: 2 })
+              Text('UPLOAD')
+                .fontSize(9)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#8E8E93')
+            }
+
+            Text(`${this.viewModel.uploadMbps.toFixed(1)}`)
+              .fontSize(22)
+              .fontWeight(FontWeight.Bolder)
+              .fontColor(this.viewModel.state === Ndt7State.UPLOAD_RUNNING ? '#00E676' : '#FFFFFF')
+              .margin({ top: 2, bottom: 1 })
+
+            Text('Mbps')
+              .fontSize(9)
+              .fontColor('#8E8E93')
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Center)
+        }
+        .width('82%')
+        .padding({ top: 8, bottom: 8, left: 6, right: 6 })
+        .backgroundColor('#141416')
+        .borderRadius(16)
+        .margin({ bottom: 8 })
+
+        // 4. Latency & Retransmission Diagnostics
+        Row() {
+          Row() {
+            Text('RTT')
+              .fontSize(9)
+              .fontColor('#8E8E93')
+              .margin({ right: 4 })
+            Text(this.viewModel.latencyMs > 0 ? `${this.viewModel.latencyMs} ms` : '--')
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#FFFFFF')
+          }
+          .margin({ right: 14 })
+
+          Row() {
+            Text('Loss')
+              .fontSize(9)
+              .fontColor('#8E8E93')
+              .margin({ right: 4 })
+            Text(this.viewModel.retransPercent > 0 ? `${this.viewModel.retransPercent}%` : '0%')
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#FFFFFF')
+          }
+        }
+        .margin({ bottom: 4 })
+
+        // 5. Server Info
+        Text(this.getServerDisplay())
+          .fontSize(9)
+          .fontColor('#636366')
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('72%')
+          .textAlign(TextAlign.Center)
       }
-      .width('76%')
-      .height(52)
-      .margin({ top: 4, bottom: 16 })
-      .padding(4)
-      .backgroundColor('#0D0D0D')
-      .borderRadius(8)
+      .width('100%')
+      .height('100%')
+      .alignItems(HorizontalAlign.Center)
+      .justifyContent(FlexAlign.Start)
+
+      // 6. ArcButton attached cleanly to the circular bottom edge
+      if (this.viewModel.isRunning()) {
+        ArcButton({
+          options: new ArcButtonOptions({
+            position: ArcButtonPosition.BOTTOM_EDGE,
+            styleMode: ArcButtonStyleMode.CUSTOM,
+            backgroundColor: ColorMetrics.resourceColor('#D50000'),
+            fontColor: ColorMetrics.resourceColor('#FFFFFF'),
+            label: 'CANCEL',
+            onClick: () => {
+              this.viewModel.cancelSpeedTest();
+            }
+          })
+        })
+      } else {
+        ArcButton({
+          options: new ArcButtonOptions({
+            position: ArcButtonPosition.BOTTOM_EDGE,
+            styleMode: ArcButtonStyleMode.CUSTOM,
+            backgroundColor: ColorMetrics.resourceColor('#00E5FF'),
+            fontColor: ColorMetrics.resourceColor('#000000'),
+            label: 'START TEST',
+            onClick: () => {
+              this.viewModel.startSpeedTest(getContext(this));
+            }
+          })
+        })
+      }
     }
     .width('100%')
     .height('100%')
     .backgroundColor('#000000')
-    .alignItems(HorizontalAlign.Center)
-    .justifyContent(FlexAlign.Start)
+  }
+
+  private getStatusLabel(): string {
+    switch (this.viewModel.state) {
+      case Ndt7State.IDLE:
+        return 'Ready';
+      case Ndt7State.DISCOVERING:
+        return 'Finding Server...';
+      case Ndt7State.DOWNLOAD_CONNECTING:
+        return 'Connecting Download...';
+      case Ndt7State.DOWNLOAD_RUNNING:
+        return 'Testing Download...';
+      case Ndt7State.UPLOAD_CONNECTING:
+        return 'Connecting Upload...';
+      case Ndt7State.UPLOAD_RUNNING:
+        return 'Testing Upload...';
+      case Ndt7State.COMPLETED:
+        return 'Test Completed';
+      case Ndt7State.CANCELED:
+        return 'Canceled';
+      case Ndt7State.FAILED:
+        return 'Test Failed';
+      default:
+        return this.viewModel.state;
+    }
+  }
+
+  private getServerDisplay(): string {
+    if (this.viewModel.serverCity) {
+      return `Server: ${this.viewModel.serverCity}`;
+    }
+    if (this.viewModel.serverName && this.viewModel.serverName !== 'Auto (Locate API)') {
+      return `Server: ${this.viewModel.serverName}`;
+    }
+    return 'Server: Auto (M-Lab Locate)';
   }
 
   private getStateColor(state: Ndt7State): string {
@@ -172,7 +245,7 @@ struct MainPage {
       case Ndt7State.FAILED:
         return '#FF1744';
       default:
-        return '#888888';
+        return '#8E8E93';
     }
   }
 }

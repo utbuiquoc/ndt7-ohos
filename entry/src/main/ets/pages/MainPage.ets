@@ -1,5 +1,6 @@
 import { SpeedTestViewModel } from '../viewmodel/SpeedTestViewModel';
 import { Ndt7State } from '@mlab/ndt7-ohos';
+import { ScreenAwakeManager } from '../utils/ScreenAwakeManager';
 
 @Entry
 @Component
@@ -8,9 +9,17 @@ struct MainPage {
   @State refreshTrigger: number = 0;
 
   aboutToAppear(): void {
+    this.viewModel.setContext(getContext(this));
     this.viewModel.setOnUpdate(() => {
       this.refreshTrigger++;
     });
+  }
+
+  aboutToDisappear(): void {
+    if (this.viewModel.isRunning()) {
+      this.viewModel.cancelSpeedTest();
+    }
+    ScreenAwakeManager.setKeepScreenOn(getContext(this), false);
   }
 
   build() {
@@ -117,7 +126,7 @@ struct MainPage {
           .fontWeight(FontWeight.Medium)
           .borderRadius(14)
           .onClick(() => {
-            this.viewModel.startSpeedTest();
+            this.viewModel.startSpeedTest(getContext(this));
           })
       }
 

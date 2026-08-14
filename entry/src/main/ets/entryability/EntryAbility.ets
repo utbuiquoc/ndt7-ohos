@@ -1,0 +1,26 @@
+import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { window } from '@kit.ArkUI';
+
+const DOMAIN = 0xA11A;
+const TAG = 'EntryAbility';
+
+export default class EntryAbility extends UIAbility {
+  onCreate(_want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    try {
+      this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+    } catch (_) {
+      hilog.warn(DOMAIN, TAG, 'Failed to set dark mode');
+    }
+  }
+
+  onWindowStageCreate(windowStage: window.WindowStage): void {
+    windowStage.loadContent('pages/MainPage', (error) => {
+      if (error.code) {
+        hilog.error(DOMAIN, TAG, 'Failed to load MainPage: %{public}d', error.code);
+      }
+    });
+  }
+
+  onDestroy(): void {}
+}

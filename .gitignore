@@ -1,0 +1,29 @@
+# HarmonyOS & DevEco Studio
+.hvigor/
+.idea/
+build/
+**/build/
+oh_modules/
+**/oh_modules/
+node_modules/
+**/node_modules/
+local.properties
+.preview/
+**/.test/
+*.hsp
+*.hap
+*.har
+
+# Internal notes and configs
+GEMINI.md
+.env*
+*.secret
+
+# Logs and temp files
+*.log
+screen*.jpeg
+screen*.png
+
+# OS files
+.DS_Store
+Thumbs.db

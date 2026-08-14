@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "ndt7-ohos-workspace",
+  "version": "1.0.0",
+  "description": "M-Lab NDT7 HarmonyOS ArkTS Client Library and Test Harness",
+  "main": "",
+  "author": "M-Lab / HarmonyOS Contributors",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.28"
+  }
+}

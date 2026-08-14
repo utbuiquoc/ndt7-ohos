@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "NDT7 Test Harness Module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "NDT7 Speed Test Ability"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "NDT7 Test"
+    },
+    {
+      "name": "internet_reason",
+      "value": "Needed to perform network diagnostic tests to M-Lab servers"
+    }
+  ]
+}

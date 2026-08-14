@@ -15,33 +15,33 @@ struct MainPage {
 
   build() {
     Column() {
-      // 1. Header & State Badge
+      // 1. Header & State Badge (Wearable Safe Inset Top: ~20px)
       Text('NDT7 Test Harness')
-        .fontSize(14)
+        .fontSize(13)
         .fontWeight(FontWeight.Bold)
         .fontColor('#FFFFFF')
-        .margin({ top: 12, bottom: 4 })
+        .margin({ top: 20, bottom: 2 })
 
       Text(`State: ${this.viewModel.state}`)
-        .fontSize(11)
+        .fontSize(10)
         .fontColor(this.getStateColor(this.viewModel.state))
         .padding({ left: 8, right: 8, top: 2, bottom: 2 })
         .backgroundColor('#222222')
         .borderRadius(10)
-        .margin({ bottom: 6 })
+        .margin({ bottom: 4 })
 
-      // 2. Metrics Block
+      // 2. Metrics Card
       Row() {
         Column() {
           Text('↓ DOWNLOAD')
             .fontSize(9)
             .fontColor('#888888')
           Text(`${this.viewModel.downloadMbps.toFixed(1)}`)
-            .fontSize(18)
+            .fontSize(17)
             .fontWeight(FontWeight.Bold)
             .fontColor('#00E5FF')
           Text('Mbps')
-            .fontSize(9)
+            .fontSize(8)
             .fontColor('#AAAAAA')
         }
         .layoutWeight(1)
@@ -49,7 +49,7 @@ struct MainPage {
 
         Divider()
           .vertical(true)
-          .height(32)
+          .height(30)
           .color('#333333')
 
         Column() {
@@ -57,18 +57,18 @@ struct MainPage {
             .fontSize(9)
             .fontColor('#888888')
           Text(`${this.viewModel.uploadMbps.toFixed(1)}`)
-            .fontSize(18)
+            .fontSize(17)
             .fontWeight(FontWeight.Bold)
             .fontColor('#00E676')
           Text('Mbps')
-            .fontSize(9)
+            .fontSize(8)
             .fontColor('#AAAAAA')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Center)
       }
-      .width('84%')
-      .padding(6)
+      .width('80%')
+      .padding(4)
       .backgroundColor('#161616')
       .borderRadius(12)
       .margin({ bottom: 4 })
@@ -76,29 +76,29 @@ struct MainPage {
       // 3. Diagnostics & Server Info
       Row() {
         Text(`RTT: ${this.viewModel.latencyMs > 0 ? this.viewModel.latencyMs + ' ms' : '--'}`)
-          .fontSize(9)
+          .fontSize(8)
           .fontColor('#CCCCCC')
           .margin({ right: 8 })
 
         Text(`Retrans: ${this.viewModel.retransPercent > 0 ? this.viewModel.retransPercent + '%' : '--'}`)
-          .fontSize(9)
+          .fontSize(8)
           .fontColor('#CCCCCC')
       }
       .margin({ bottom: 2 })
 
       Text(this.viewModel.serverName ? `Server: ${this.viewModel.serverName}` : 'Server: Auto')
-        .fontSize(9)
+        .fontSize(8)
         .fontColor('#888888')
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('80%')
+        .width('75%')
         .textAlign(TextAlign.Center)
-        .margin({ bottom: 6 })
+        .margin({ bottom: 4 })
 
       // 4. Action Button (Start / Cancel)
       if (this.viewModel.isRunning()) {
         Button('Cancel Test')
-          .width('70%')
+          .width('65%')
           .height(28)
           .fontSize(11)
           .backgroundColor('#D50000')
@@ -109,7 +109,7 @@ struct MainPage {
           })
       } else {
         Button('Start Test')
-          .width('70%')
+          .width('65%')
           .height(28)
           .fontSize(11)
           .backgroundColor('#00B0FF')
@@ -121,20 +121,20 @@ struct MainPage {
           })
       }
 
-      // 5. Diagnostic Log Area
+      // 5. Diagnostic Log Area (Wearable Safe Inset Bottom: ~16px)
       List() {
         ForEach(this.viewModel.logs, (logLine: string, index: number) => {
           ListItem() {
             Text(logLine)
-              .fontSize(8)
+              .fontSize(7.5)
               .fontColor('#9E9E9E')
               .fontFamily('monospace')
           }
         }, (logLine: string, index: number) => `${index}_${logLine}`)
       }
-      .width('84%')
-      .height(60)
-      .margin({ top: 6, bottom: 8 })
+      .width('76%')
+      .height(52)
+      .margin({ top: 4, bottom: 16 })
       .padding(4)
       .backgroundColor('#0D0D0D')
       .borderRadius(8)

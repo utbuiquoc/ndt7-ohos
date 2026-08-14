@@ -1,0 +1,11 @@
+{
+  "name": "ndt7-tools",
+  "version": "1.0.0",
+  "description": "Wearable dev tools (mask screenshot emulator thành mặt tròn)",
+  "main": "index.js",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "jimp": "^1.6.1"
+  }
+}

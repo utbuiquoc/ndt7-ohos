@@ -132,6 +132,8 @@ export class Ndt7Config {
   public metadata?: Record<string, string>;
   public userAcceptedDataPolicy?: boolean;
   public mlabDataPolicyInapplicable?: boolean;
+  public maxRetries?: number;
+  public retryDelayMs?: number;
 }
 
 export class Ndt7TestResult {

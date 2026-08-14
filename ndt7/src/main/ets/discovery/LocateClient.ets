@@ -41,8 +41,29 @@ export class LocateClient {
         Ndt7Constants.DEFAULT_LOCATE_URL;
     }
 
-    // 3. Make HTTP request with redirect following
-    return await this.fetchLocate(targetLocateUrl, config, 0);
+    // 3. Make HTTP request with retry & redirect following
+    const maxRetries = config.maxRetries !== undefined ? config.maxRetries : 2;
+    const retryDelay = config.retryDelayMs !== undefined ? config.retryDelayMs : 1000;
+    let lastError: Error | undefined = undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.fetchLocate(targetLocateUrl, config, 0);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        // HTTP 204 means no capacity right now; do not retry 204
+        if (err instanceof Ndt7LocateCapacityError) {
+          throw err;
+        }
+        if (attempt < maxRetries) {
+          await new Promise<void>((resolve: () => void) => {
+            setTimeout(resolve, retryDelay * (attempt + 1));
+          });
+        }
+      }
+    }
+
+    throw lastError || new Ndt7LocateError('Failed to discover server after retries');
   }
 
   private async fetchLocate(url: string, config: Ndt7Config, redirectCount: number): Promise<LocateResult> {

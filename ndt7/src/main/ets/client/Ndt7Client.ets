@@ -62,68 +62,106 @@ export class Ndt7Client {
         throw new Ndt7Error('No measurement servers found', 'NO_SERVERS');
       }
 
-      const selectedServer = locateResult.results[0];
-      if (callbacks && callbacks.onServerChosen) {
-        callbacks.onServerChosen(selectedServer);
+      // Try candidate servers in order of distance priority
+      const candidateServers = locateResult.results;
+      let lastCandidateError: Error | undefined = undefined;
+      let successfulResult: Ndt7TestResult | undefined = undefined;
+
+      for (let sIdx = 0; sIdx < candidateServers.length; sIdx++) {
+        const selectedServer = candidateServers[sIdx];
+        if (sIdx > 0 && callbacks && callbacks.onLog) {
+          callbacks.onLog(`[NDT7 Fallback] Retrying with backup server candidate: ${selectedServer.machine}`);
+        }
+
+        if (callbacks && callbacks.onServerChosen) {
+          callbacks.onServerChosen(selectedServer);
+        }
+
+        if (this.isAborted) {
+          throw new Ndt7AbortError();
+        }
+
+        try {
+          // Resolve Download and Upload URLs with token and metadata
+          const rawDownloadUrl = this.resolveUrl(selectedServer, cfg, 'download');
+          const rawUploadUrl = this.resolveUrl(selectedServer, cfg, 'upload');
+
+          const downloadUrl = LocateClient.appendMetadata(rawDownloadUrl, cfg.metadata);
+          const uploadUrl = LocateClient.appendMetadata(rawUploadUrl, cfg.metadata);
+
+          // 3. Run Download Test
+          this.setState(Ndt7State.DOWNLOAD_CONNECTING, `Connecting to download server (${selectedServer.machine})`, callbacks);
+          this.downloadRunner = new DownloadRunner();
+
+          this.setState(Ndt7State.DOWNLOAD_RUNNING, 'Running download test', callbacks);
+          const downloadSummary = await this.downloadRunner.run(
+            downloadUrl,
+            callbacks,
+            cfg.testDurationMs || Ndt7Constants.DEFAULT_TEST_DURATION_MS,
+            cfg.timeoutMs || Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS
+          );
+          this.downloadRunner = undefined;
+
+          if (this.isAborted) {
+            throw new Ndt7AbortError();
+          }
+
+          // 4. Run Upload Test
+          this.setState(Ndt7State.UPLOAD_CONNECTING, `Connecting to upload server (${selectedServer.machine})`, callbacks);
+          this.uploadRunner = new UploadRunner();
+
+          this.setState(Ndt7State.UPLOAD_RUNNING, 'Running upload test', callbacks);
+          const uploadSummary = await this.uploadRunner.run(
+            uploadUrl,
+            callbacks,
+            cfg.testDurationMs || Ndt7Constants.DEFAULT_TEST_DURATION_MS,
+            cfg.timeoutMs || Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS
+          );
+          this.uploadRunner = undefined;
+
+          // 5. Complete
+          const endTimeMs = Date.now();
+          const testResult = new Ndt7TestResult();
+          testResult.server = selectedServer;
+          testResult.download = downloadSummary;
+          testResult.upload = uploadSummary;
+          testResult.startTimeMs = startTimeMs;
+          testResult.endTimeMs = endTimeMs;
+          testResult.status = 'completed';
+
+          this.setState(Ndt7State.COMPLETED, 'NDT7 speed test completed successfully', callbacks);
+          if (callbacks && callbacks.onComplete) {
+            callbacks.onComplete(testResult);
+          }
+
+          successfulResult = testResult;
+          break; // Succeeded! Exit candidate loop
+
+        } catch (candidateErr) {
+          this.downloadRunner = undefined;
+          this.uploadRunner = undefined;
+
+          if (this.isAborted || candidateErr instanceof Ndt7AbortError) {
+            throw new Ndt7AbortError();
+          }
+
+          const typedErr = candidateErr instanceof Ndt7Error ? candidateErr : new Ndt7Error(String(candidateErr));
+          lastCandidateError = typedErr;
+          if (sIdx < candidateServers.length - 1 && (cfg.server === undefined && cfg.downloadUrl === undefined)) {
+            if (callbacks && callbacks.onLog) {
+              callbacks.onLog(`[NDT7 Notice] Connection to ${selectedServer.machine} failed (${typedErr.message}). Attempting next candidate.`);
+            }
+            continue; // Fallback to next candidate
+          }
+          throw typedErr;
+        }
       }
 
-      if (this.isAborted) {
-        throw new Ndt7AbortError();
+      if (!successfulResult) {
+        throw (lastCandidateError instanceof Ndt7Error ? lastCandidateError : new Ndt7Error('All candidate servers failed', 'ALL_SERVERS_FAILED'));
       }
 
-      // Resolve Download and Upload URLs with token and metadata
-      const rawDownloadUrl = this.resolveUrl(selectedServer, cfg, 'download');
-      const rawUploadUrl = this.resolveUrl(selectedServer, cfg, 'upload');
-
-      const downloadUrl = LocateClient.appendMetadata(rawDownloadUrl, cfg.metadata);
-      const uploadUrl = LocateClient.appendMetadata(rawUploadUrl, cfg.metadata);
-
-      // 3. Run Download Test
-      this.setState(Ndt7State.DOWNLOAD_CONNECTING, 'Connecting to download server', callbacks);
-      this.downloadRunner = new DownloadRunner();
-
-      this.setState(Ndt7State.DOWNLOAD_RUNNING, 'Running download test', callbacks);
-      const downloadSummary = await this.downloadRunner.run(
-        downloadUrl,
-        callbacks,
-        cfg.testDurationMs || Ndt7Constants.DEFAULT_TEST_DURATION_MS,
-        cfg.timeoutMs || Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS
-      );
-      this.downloadRunner = undefined;
-
-      if (this.isAborted) {
-        throw new Ndt7AbortError();
-      }
-
-      // 4. Run Upload Test
-      this.setState(Ndt7State.UPLOAD_CONNECTING, 'Connecting to upload server', callbacks);
-      this.uploadRunner = new UploadRunner();
-
-      this.setState(Ndt7State.UPLOAD_RUNNING, 'Running upload test', callbacks);
-      const uploadSummary = await this.uploadRunner.run(
-        uploadUrl,
-        callbacks,
-        cfg.testDurationMs || Ndt7Constants.DEFAULT_TEST_DURATION_MS,
-        cfg.timeoutMs || Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS
-      );
-      this.uploadRunner = undefined;
-
-      // 5. Complete
-      const endTimeMs = Date.now();
-      const testResult = new Ndt7TestResult();
-      testResult.server = selectedServer;
-      testResult.download = downloadSummary;
-      testResult.upload = uploadSummary;
-      testResult.startTimeMs = startTimeMs;
-      testResult.endTimeMs = endTimeMs;
-      testResult.status = 'completed';
-
-      this.setState(Ndt7State.COMPLETED, 'NDT7 speed test completed successfully', callbacks);
-      if (callbacks && callbacks.onComplete) {
-        callbacks.onComplete(testResult);
-      }
-
-      return testResult;
+      return successfulResult;
 
     } catch (err) {
       const error = err instanceof Ndt7Error ? err : new Ndt7Error(String(err));

@@ -1,0 +1,13 @@
+M-Lab NDT7 Client for HarmonyOS (ndt7-ohos)
+Copyright 2026 Quoc Bui and ndt7-ohos contributors
+
+This product includes software developed as an open source client implementation
+of the Measurement Lab (M-Lab) Network Diagnostic Tool (NDT7) protocol.
+
+M-Lab NDT7 Protocol Specification and Reference Implementations:
+- Protocol Specification: https://github.com/m-lab/ndt-server/blob/main/spec/ndt7-protocol.md
+- Official JavaScript Client: https://github.com/m-lab/ndt7-js
+- Official Go Client: https://github.com/m-lab/ndt7-client-go
+
+Copyright (c) Measurement Lab (M-Lab) and contributors.
+Licensed under the Apache License, Version 2.0.

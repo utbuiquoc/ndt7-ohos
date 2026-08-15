@@ -1,17 +1,17 @@
 import { BusinessError } from '@kit.BasicServicesKit';
 
 /**
- * Standard Ndt7Error conforming to HarmonyOS BusinessError
+ * Standard Ndt7Error extending JavaScript Error and conforming to HarmonyOS BusinessError
  */
-export class Ndt7Error implements BusinessError {
+export class Ndt7Error extends Error implements BusinessError {
   public code: number = 10001;
   public name: string = 'Ndt7Error';
-  public message: string = '';
-  public stack?: string;
   public errorCode: string = 'NDT7_ERROR';
 
   constructor(message: string, errorCode: string = 'NDT7_ERROR', code: number = 10001) {
+    super(message);
     this.message = message;
+    this.name = 'Ndt7Error';
     this.errorCode = errorCode;
     this.code = code;
   }
@@ -33,8 +33,8 @@ export class Ndt7PolicyError extends Ndt7Error {
 export class Ndt7LocateError extends Ndt7Error {
   public statusCode?: number;
 
-  constructor(message: string, statusCode?: number) {
-    super(message, 'LOCATE_ERROR', 10003);
+  constructor(message: string, statusCode?: number, errorCode: string = 'LOCATE_ERROR', code: number = 10003) {
+    super(message, errorCode, code);
     this.name = 'Ndt7LocateError';
     this.statusCode = statusCode;
   }
@@ -45,10 +45,8 @@ export class Ndt7LocateError extends Ndt7Error {
  */
 export class Ndt7LocateCapacityError extends Ndt7LocateError {
   constructor(message: string = 'No measurement capacity currently available on M-Lab servers (HTTP 204)') {
-    super(message, 204);
+    super(message, 204, 'LOCATE_NO_CAPACITY', 10008);
     this.name = 'Ndt7LocateCapacityError';
-    this.errorCode = 'LOCATE_NO_CAPACITY';
-    this.code = 204;
   }
 }
 
@@ -89,5 +87,15 @@ export class Ndt7AbortError extends Ndt7Error {
   constructor(message: string = 'NDT7 speed test was aborted') {
     super(message, 'ABORTED', 10007);
     this.name = 'Ndt7AbortError';
+  }
+}
+
+/**
+ * Thrown on security policy violations (e.g. plaintext transport, insecure redirects, token leakage)
+ */
+export class Ndt7SecurityError extends Ndt7Error {
+  constructor(message: string) {
+    super(message, 'SECURITY_ERROR', 10009);
+    this.name = 'Ndt7SecurityError';
   }
 }

@@ -9,10 +9,10 @@ export class Ndt7Math {
    * Formula: bps = (bytes * 8 * 1,000,000) / elapsedUs
    */
   public static calculateSpeed(bytes: number, elapsedUs: number, diagnostics?: Ndt7Diagnostics): Ndt7SpeedSummary {
-    if (bytes <= 0 || elapsedUs <= 0 || isNaN(bytes) || isNaN(elapsedUs)) {
+    if (!Number.isFinite(bytes) || !Number.isFinite(elapsedUs) || bytes <= 0 || elapsedUs <= 0) {
       const summary = new Ndt7SpeedSummary();
-      summary.bytes = Math.max(0, bytes || 0);
-      summary.elapsedUs = Math.max(0, elapsedUs || 0);
+      summary.bytes = (Number.isFinite(bytes) && bytes > 0) ? bytes : 0;
+      summary.elapsedUs = (Number.isFinite(elapsedUs) && elapsedUs > 0) ? elapsedUs : 0;
       summary.bps = 0;
       summary.mbps = 0;
       summary.diagnostics = diagnostics;
@@ -25,8 +25,8 @@ export class Ndt7Math {
     const summary = new Ndt7SpeedSummary();
     summary.bytes = bytes;
     summary.elapsedUs = elapsedUs;
-    summary.bps = bps;
-    summary.mbps = Math.round(mbps * 100.0) / 100.0;
+    summary.bps = Number.isFinite(bps) ? bps : 0;
+    summary.mbps = Number.isFinite(mbps) ? Math.round(mbps * 100.0) / 100.0 : 0;
     summary.diagnostics = diagnostics;
     return summary;
   }
@@ -40,18 +40,28 @@ export class Ndt7Math {
     }
 
     let retransmissionRate: number | undefined = undefined;
-    if (tcpInfo.BytesSent && tcpInfo.BytesSent > 0 && tcpInfo.BytesRetrans !== undefined) {
+    if (
+      tcpInfo.BytesSent !== undefined &&
+      Number.isFinite(tcpInfo.BytesSent) &&
+      tcpInfo.BytesSent > 0 &&
+      tcpInfo.BytesRetrans !== undefined &&
+      Number.isFinite(tcpInfo.BytesRetrans) &&
+      tcpInfo.BytesRetrans >= 0
+    ) {
       retransmissionRate = Math.round((tcpInfo.BytesRetrans / tcpInfo.BytesSent) * 10000.0) / 100.0; // as % with 2 decimals
+      if (!Number.isFinite(retransmissionRate)) {
+        retransmissionRate = undefined;
+      }
     }
 
     const diag = new Ndt7Diagnostics();
-    diag.minRttUs = tcpInfo.MinRTT;
-    diag.rttUs = tcpInfo.RTT;
-    diag.rttVarUs = tcpInfo.RTTVar;
-    diag.bytesSent = tcpInfo.BytesSent;
-    diag.bytesRetrans = tcpInfo.BytesRetrans;
-    diag.bytesAcked = tcpInfo.BytesAcked;
-    diag.bytesReceived = tcpInfo.BytesReceived;
+    diag.minRttUs = (tcpInfo.MinRTT !== undefined && Number.isFinite(tcpInfo.MinRTT) && tcpInfo.MinRTT >= 0) ? tcpInfo.MinRTT : undefined;
+    diag.rttUs = (tcpInfo.RTT !== undefined && Number.isFinite(tcpInfo.RTT) && tcpInfo.RTT >= 0) ? tcpInfo.RTT : undefined;
+    diag.rttVarUs = (tcpInfo.RTTVar !== undefined && Number.isFinite(tcpInfo.RTTVar) && tcpInfo.RTTVar >= 0) ? tcpInfo.RTTVar : undefined;
+    diag.bytesSent = (tcpInfo.BytesSent !== undefined && Number.isFinite(tcpInfo.BytesSent) && tcpInfo.BytesSent >= 0) ? tcpInfo.BytesSent : undefined;
+    diag.bytesRetrans = (tcpInfo.BytesRetrans !== undefined && Number.isFinite(tcpInfo.BytesRetrans) && tcpInfo.BytesRetrans >= 0) ? tcpInfo.BytesRetrans : undefined;
+    diag.bytesAcked = (tcpInfo.BytesAcked !== undefined && Number.isFinite(tcpInfo.BytesAcked) && tcpInfo.BytesAcked >= 0) ? tcpInfo.BytesAcked : undefined;
+    diag.bytesReceived = (tcpInfo.BytesReceived !== undefined && Number.isFinite(tcpInfo.BytesReceived) && tcpInfo.BytesReceived >= 0) ? tcpInfo.BytesReceived : undefined;
     diag.retransmissionRate = retransmissionRate;
     return diag;
   }
@@ -60,7 +70,7 @@ export class Ndt7Math {
    * Formats Mbps speed into readable string
    */
   public static formatSpeed(mbps: number): string {
-    if (isNaN(mbps) || mbps <= 0) {
+    if (!Number.isFinite(mbps) || mbps <= 0) {
       return '0.00 Mbps';
     }
     if (mbps >= 1000) {
@@ -78,7 +88,7 @@ export class Ndt7Math {
    * Formats byte size into human readable string
    */
   public static formatBytes(bytes: number): string {
-    if (isNaN(bytes) || bytes <= 0) {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
       return '0 B';
     }
     const units = ['B', 'KB', 'MB', 'GB'];

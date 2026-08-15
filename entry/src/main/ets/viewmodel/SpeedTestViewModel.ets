@@ -7,6 +7,11 @@ import {
   Ndt7TestResult
 } from '@mlab/ndt7-ohos';
 import { ScreenAwakeManager } from '../utils/ScreenAwakeManager';
+import { ConsentPreferencesManager } from '../utils/ConsentPreferencesManager';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const DOMAIN = 0xA11A;
+const TAG = 'SpeedTestVM';
 
 /**
  * ViewModel orchestrating NDT7 tests for the Wearable Test Harness UI
@@ -21,6 +26,7 @@ export class SpeedTestViewModel {
   public latencyMs: number = 0;
   public retransPercent: number = 0;
   public logs: string[] = [];
+  public userAcceptedDataPolicy: boolean = false;
 
   private client: Ndt7Client = new Ndt7Client();
   private onUpdateCallback?: () => void;
@@ -30,22 +36,44 @@ export class SpeedTestViewModel {
     this.context = context;
   }
 
-  public setOnUpdate(callback: () => void): void {
+  public setOnUpdate(callback?: () => void): void {
     this.onUpdateCallback = callback;
+  }
+
+  public setUserAcceptedDataPolicy(accepted: boolean): void {
+    this.userAcceptedDataPolicy = accepted;
+  }
+
+  public async loadConsent(context: Context): Promise<boolean> {
+    this.context = context;
+    const accepted = await ConsentPreferencesManager.getInstance().isPolicyAccepted(context);
+    this.userAcceptedDataPolicy = accepted;
+    this.notify();
+    return accepted;
+  }
+
+  public async acceptPolicy(context: Context): Promise<void> {
+    this.context = context;
+    await ConsentPreferencesManager.getInstance().setPolicyAccepted(context, true);
+    this.userAcceptedDataPolicy = true;
+    this.notify();
   }
 
   private notify(): void {
     if (this.onUpdateCallback) {
-      this.onUpdateCallback();
+      try {
+        this.onUpdateCallback();
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'onUpdateCallback error: %{public}s', String(e));
+      }
     }
   }
 
   public addLog(msg: string): void {
     const timestamp = new Date().toTimeString().split(' ')[0];
-    this.logs.unshift(`[${timestamp}] ${msg}`);
-    if (this.logs.length > 50) {
-      this.logs.pop();
-    }
+    const newEntry = `[${timestamp}] ${msg}`;
+    // Replace array reference immutably so ArkUI state observers detect changes
+    this.logs = [newEntry, ...this.logs.slice(0, 49)];
     this.notify();
   }
 
@@ -78,7 +106,7 @@ export class SpeedTestViewModel {
     try {
       await this.client.startTest(
         {
-          userAcceptedDataPolicy: true, // App confirms user policy consent
+          userAcceptedDataPolicy: this.userAcceptedDataPolicy,
           metadata: {
             'client_name': 'ndt7-wearable-harness',
             'client_version': '1.0.0'
@@ -136,15 +164,13 @@ export class SpeedTestViewModel {
           onComplete: (result: Ndt7TestResult) => {
             this.state = this.client.getState();
             this.addLog(`Test Sequence Completed (${result.status})`);
-            // Release screen lock on finish
-            ScreenAwakeManager.setKeepScreenOn(this.context, false);
+            ScreenAwakeManager.setKeepScreenOn(this.context, false).catch(() => {});
             this.notify();
           },
           onError: (err: Error) => {
             this.state = this.client.getState();
             this.addLog(`ERROR: ${err.message}`);
-            // Release screen lock on error
-            ScreenAwakeManager.setKeepScreenOn(this.context, false);
+            ScreenAwakeManager.setKeepScreenOn(this.context, false).catch(() => {});
             this.notify();
           },
           onLog: (msg: string) => {
@@ -152,9 +178,13 @@ export class SpeedTestViewModel {
           }
         }
       );
-    } catch (_) {
-      // Release screen lock on exception
+    } catch (err) {
+      this.state = Ndt7State.FAILED;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.statusMessage = errMsg;
+      this.addLog(`ERROR: ${errMsg}`);
       await ScreenAwakeManager.setKeepScreenOn(this.context, false);
+      this.notify();
     }
   }
 
@@ -162,8 +192,7 @@ export class SpeedTestViewModel {
     this.addLog('Aborting speed test...');
     this.client.abort();
     this.state = this.client.getState();
-    // Release screen lock on abort
-    ScreenAwakeManager.setKeepScreenOn(this.context, false);
+    ScreenAwakeManager.setKeepScreenOn(this.context, false).catch(() => {});
     this.notify();
   }
 }

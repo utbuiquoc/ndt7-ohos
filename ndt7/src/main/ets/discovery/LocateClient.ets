@@ -1,36 +1,42 @@
 import { http } from '@kit.NetworkKit';
+import { util } from '@kit.ArkTS';
 import { LocateLocation, LocateResult, LocateServer, Ndt7Config } from '../model/Ndt7Models';
 import { Ndt7Constants } from '../utils/Ndt7Constants';
-import { Ndt7LocateCapacityError, Ndt7LocateError } from '../utils/Ndt7Errors';
+import { Ndt7Error, Ndt7LocateCapacityError, Ndt7LocateError, Ndt7ProtocolError, Ndt7SecurityError } from '../utils/Ndt7Errors';
 
 /**
  * M-Lab Locate API v2 Client for NDT7 Server Discovery
  */
 export class LocateClient {
+  private static encoder: util.TextEncoder = new util.TextEncoder();
+
   /**
    * Discovers nearest M-Lab servers via Locate API v2 or constructs custom server endpoints
    */
   public async discover(config: Ndt7Config): Promise<LocateResult> {
     // 1. If direct URLs or custom server are provided, short-circuit discovery
     if (config.downloadUrl && config.uploadUrl) {
+      if (!config.allowInsecureTransport) {
+        if (!config.downloadUrl.startsWith('wss://') || !config.uploadUrl.startsWith('wss://')) {
+          throw new Ndt7SecurityError('Direct URLs must use wss:// scheme');
+        }
+      }
       const urls: Record<string, string> = {};
       urls['wss:///ndt/v7/download'] = config.downloadUrl;
       urls['wss:///ndt/v7/upload'] = config.uploadUrl;
       const server = new LocateServer('custom-direct', undefined, urls);
-      const res = new LocateResult([server]);
-      return res;
+      return new LocateResult([server]);
     }
 
     if (config.server) {
-      const proto = config.protocol === 'ws' ? 'ws' : 'wss';
+      const proto = (config.protocol === 'ws' && config.allowInsecureTransport) ? 'ws' : 'wss';
       const downloadUrl = `${proto}://${config.server}${Ndt7Constants.DOWNLOAD_PATH}`;
       const uploadUrl = `${proto}://${config.server}${Ndt7Constants.UPLOAD_PATH}`;
       const urls: Record<string, string> = {};
       urls['wss:///ndt/v7/download'] = downloadUrl;
       urls['wss:///ndt/v7/upload'] = uploadUrl;
       const server = new LocateServer(config.server, undefined, urls);
-      const res = new LocateResult([server]);
-      return res;
+      return new LocateResult([server]);
     }
 
     // 2. Select Locate URL
@@ -41,19 +47,27 @@ export class LocateClient {
         Ndt7Constants.DEFAULT_LOCATE_URL;
     }
 
+    // Enforce HTTPS unless insecure transport is explicitly allowed
+    if (!targetLocateUrl.startsWith('https://') && (!config.allowInsecureTransport || !targetLocateUrl.startsWith('http://'))) {
+      throw new Ndt7SecurityError(`Locate API URL must use https:// scheme: "${targetLocateUrl}"`);
+    }
+
     // 3. Make HTTP request with retry & redirect following
-    const maxRetries = config.maxRetries !== undefined ? config.maxRetries : 2;
-    const retryDelay = config.retryDelayMs !== undefined ? config.retryDelayMs : 1000;
+    const maxRetries = config.maxRetries !== undefined ? Math.min(Math.max(0, config.maxRetries), 10) : 2;
+    const retryDelay = config.retryDelayMs !== undefined ? Math.min(Math.max(0, config.retryDelayMs), 30000) : 1000;
     let lastError: Error | undefined = undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.fetchLocate(targetLocateUrl, config, 0);
+        return await this.fetchLocate(targetLocateUrl, config, 0, targetLocateUrl);
       } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
+        lastError = err instanceof Error ? (err as Error) : new Error(String(err));
         // HTTP 204 means no capacity right now; do not retry 204
         if (err instanceof Ndt7LocateCapacityError) {
-          throw err;
+          throw err as Ndt7LocateCapacityError;
+        }
+        if (err instanceof Ndt7SecurityError) {
+          throw err as Ndt7SecurityError;
         }
         if (attempt < maxRetries) {
           await new Promise<void>((resolve: () => void) => {
@@ -63,12 +77,19 @@ export class LocateClient {
       }
     }
 
-    throw lastError || new Ndt7LocateError('Failed to discover server after retries');
+    if (lastError) {
+      throw lastError;
+    }
+    throw new Ndt7LocateError('Failed to discover server after retries');
   }
 
-  private async fetchLocate(url: string, config: Ndt7Config, redirectCount: number): Promise<LocateResult> {
+  private async fetchLocate(url: string, config: Ndt7Config, redirectCount: number, originalUrl: string): Promise<LocateResult> {
     if (redirectCount > 5) {
       throw new Ndt7LocateError('Too many redirects during server discovery');
+    }
+
+    if (!url.startsWith('https://') && (!config.allowInsecureTransport || !url.startsWith('http://'))) {
+      throw new Ndt7SecurityError(`Redirected to insecure URL: "${url}"`);
     }
 
     const httpRequest = http.createHttp();
@@ -77,11 +98,18 @@ export class LocateClient {
       headers['User-Agent'] = Ndt7Constants.USER_AGENT;
       headers['Accept'] = 'application/json';
 
+      // Security check: Only attach clientRegistrationToken to HTTPS and same origin/domain
       if (config.clientRegistrationToken) {
-        headers['Authorization'] = `Bearer ${config.clientRegistrationToken}`;
+        if (!url.startsWith('https://')) {
+          throw new Ndt7SecurityError('Cannot send bearer registration token over plaintext HTTP');
+        }
+        const isSameHost = this.extractHost(url) === this.extractHost(originalUrl);
+        if (isSameHost || redirectCount === 0) {
+          headers['Authorization'] = `Bearer ${config.clientRegistrationToken}`;
+        }
       }
 
-      const timeout = config.timeoutMs || Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS;
+      const timeout = config.timeoutMs !== undefined ? config.timeoutMs : Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS;
       const reqOptions: http.HttpRequestOptions = {
         method: http.RequestMethod.GET,
         header: headers,
@@ -98,7 +126,13 @@ export class LocateClient {
           response.result :
           JSON.stringify(response.result);
 
-        const parsed = JSON.parse(resultString) as Record<string, Object>;
+        let parsed: Record<string, Object>;
+        try {
+          parsed = JSON.parse(resultString) as Record<string, Object>;
+        } catch (jsonErr) {
+          throw new Ndt7ProtocolError(`Failed to parse Locate API response JSON: ${String(jsonErr)}`);
+        }
+
         const rawResults = parsed['results'] as Array<Record<string, Object>> | undefined;
 
         if (!rawResults || !Array.isArray(rawResults) || rawResults.length === 0) {
@@ -108,30 +142,45 @@ export class LocateClient {
         const servers: LocateServer[] = [];
         for (let i = 0; i < rawResults.length; i++) {
           const item = rawResults[i];
+          if (!item || typeof item !== 'object') {
+            continue;
+          }
+
           const locationObj = item['location'] as Record<string, string> | undefined;
           const urlsObj = item['urls'] as Record<string, string> | undefined;
 
           let location: LocateLocation | undefined = undefined;
-          if (locationObj) {
+          if (locationObj && typeof locationObj === 'object') {
             location = new LocateLocation();
-            location.city = locationObj['city'];
-            location.country = locationObj['country'];
-            location.metro = locationObj['metro'];
-            location.region = locationObj['region'];
+            location.city = typeof locationObj['city'] === 'string' ? locationObj['city'] : undefined;
+            location.country = typeof locationObj['country'] === 'string' ? locationObj['country'] : undefined;
+            location.metro = typeof locationObj['metro'] === 'string' ? locationObj['metro'] : undefined;
+            location.region = typeof locationObj['region'] === 'string' ? locationObj['region'] : undefined;
           }
 
           const serverUrls: Record<string, string> = {};
-          if (urlsObj) {
+          if (urlsObj && typeof urlsObj === 'object') {
             const urlKeys = Object.keys(urlsObj);
             for (let j = 0; j < urlKeys.length; j++) {
               const k = urlKeys[j];
-              serverUrls[k] = urlsObj[k];
+              const val = urlsObj[k];
+              if (typeof val === 'string' && val.length > 0) {
+                // Ensure URL uses wss:// unless insecure is allowed
+                if (config.allowInsecureTransport || val.startsWith('wss://')) {
+                  serverUrls[k] = val;
+                }
+              }
             }
           }
 
-          const machine = (item['machine'] as string) || 'unknown';
+          const rawMachine = item['machine'];
+          const machine = typeof rawMachine === 'string' && rawMachine.length > 0 ? rawMachine : 'unknown';
           const server = new LocateServer(machine, location, serverUrls, JSON.stringify(item));
           servers.push(server);
+        }
+
+        if (servers.length === 0) {
+          throw new Ndt7LocateError('No valid measurement servers found in Locate response');
         }
 
         return new LocateResult(servers);
@@ -145,9 +194,9 @@ export class LocateClient {
       // Handle HTTP 3xx Redirects
       if (statusCode === 301 || statusCode === 302 || statusCode === 307 || statusCode === 308) {
         const responseHeaders = response.header as Record<string, string>;
-        const redirectUrl = responseHeaders['location'] || responseHeaders['Location'];
+        const redirectUrl = responseHeaders ? (responseHeaders['location'] || responseHeaders['Location']) : undefined;
         if (redirectUrl) {
-          return await this.fetchLocate(redirectUrl, config, redirectCount + 1);
+          return await this.fetchLocate(redirectUrl, config, redirectCount + 1, originalUrl);
         }
         throw new Ndt7LocateError(`Received HTTP ${statusCode} redirect without Location header`, statusCode);
       }
@@ -157,13 +206,22 @@ export class LocateClient {
       throw new Ndt7LocateError(`Locate API failed with HTTP ${statusCode}: ${bodyPreview}`, statusCode);
 
     } catch (err) {
-      if (err instanceof Ndt7LocateError) {
-        throw err;
+      if (err instanceof Ndt7Error) {
+        throw err as Ndt7Error;
       }
       const message = err instanceof Error ? err.message : String(err);
       throw new Ndt7LocateError(`Network error while contacting Locate service: ${message}`);
     } finally {
       httpRequest.destroy();
+    }
+  }
+
+  private extractHost(urlStr: string): string {
+    try {
+      const match = urlStr.match(/^https?:\/\/([^/?#]+)/i);
+      return match ? match[1].toLowerCase() : '';
+    } catch (_) {
+      return '';
     }
   }
 
@@ -196,11 +254,14 @@ export class LocateClient {
     const separator = rawUrl.includes('?') ? '&' : '?';
     const finalUrl = `${rawUrl}${separator}${metaQueryString}`;
 
-    // Verify under 4096 bytes limit
+    // Verify under 4096 bytes limit using UTF-8 byte measurement
     const queryIndex = finalUrl.indexOf('?');
     if (queryIndex !== -1) {
-      const queryLength = finalUrl.length - queryIndex - 1;
-      if (queryLength > Ndt7Constants.MAX_QUERY_STRING_LENGTH) {
+      const queryString = finalUrl.substring(queryIndex + 1);
+      const destBuffer = new Uint8Array(queryString.length * 4);
+      const encodeResult = LocateClient.encoder.encodeInto(queryString, destBuffer);
+      const byteLength: number = encodeResult.written;
+      if (byteLength > Ndt7Constants.MAX_QUERY_STRING_LENGTH) {
         return `${rawUrl}${separator}client_library_name=${Ndt7Constants.CLIENT_LIBRARY_NAME}&client_library_version=${Ndt7Constants.CLIENT_LIBRARY_VERSION}`;
       }
     }

@@ -2,16 +2,19 @@ import { describe, it, expect } from '@ohos/hypium';
 import { Ndt7Constants } from '../main/ets/utils/Ndt7Constants';
 import { Ndt7Math } from '../main/ets/utils/Ndt7Math';
 import {
+  Ndt7AbortError,
   Ndt7ConnectionError,
+  Ndt7Error,
   Ndt7LocateCapacityError,
   Ndt7LocateError,
   Ndt7PolicyError,
   Ndt7ProtocolError,
+  Ndt7SecurityError,
   Ndt7TimeoutError
 } from '../main/ets/utils/Ndt7Errors';
 import { LocateClient } from '../main/ets/discovery/LocateClient';
 import { Ndt7Client } from '../main/ets/client/Ndt7Client';
-import { Ndt7AppInfo, Ndt7Measurement, Ndt7TCPInfo } from '../main/ets/model/Ndt7Models';
+import { Ndt7AppInfo, Ndt7Measurement, Ndt7TCPInfo, Ndt7TestResult } from '../main/ets/model/Ndt7Models';
 
 export default function localUnitTest() {
   describe('NDT7ProtocolAndMathTests', () => {
@@ -35,7 +38,7 @@ export default function localUnitTest() {
       expect(summary.mbps).assertEqual(100);
     });
 
-    it('handlesZeroAndNegativeSpeedInputsSafely', 0, () => {
+    it('handlesZeroAndNegativeAndNonFiniteSpeedInputsSafely', 0, () => {
       const zeroBytes = Ndt7Math.calculateSpeed(0, 1000000);
       expect(zeroBytes.mbps).assertEqual(0);
       expect(zeroBytes.bps).assertEqual(0);
@@ -45,10 +48,18 @@ export default function localUnitTest() {
 
       const negativeTime = Ndt7Math.calculateSpeed(1000, -500);
       expect(negativeTime.mbps).assertEqual(0);
+
+      const nanBytes = Ndt7Math.calculateSpeed(NaN, 1000000);
+      expect(nanBytes.mbps).assertEqual(0);
+
+      const infBytes = Ndt7Math.calculateSpeed(Infinity, 1000000);
+      expect(infBytes.mbps).assertEqual(0);
     });
 
     it('formatsSpeedStringsCorrectly', 0, () => {
       expect(Ndt7Math.formatSpeed(0)).assertEqual('0.00 Mbps');
+      expect(Ndt7Math.formatSpeed(-5)).assertEqual('0.00 Mbps');
+      expect(Ndt7Math.formatSpeed(NaN)).assertEqual('0.00 Mbps');
       expect(Ndt7Math.formatSpeed(0.5)).assertEqual('500.0 Kbps');
       expect(Ndt7Math.formatSpeed(45.678)).assertEqual('45.68 Mbps');
       expect(Ndt7Math.formatSpeed(1250.4)).assertEqual('1.25 Gbps');
@@ -56,6 +67,8 @@ export default function localUnitTest() {
 
     it('formatsByteSizesCorrectly', 0, () => {
       expect(Ndt7Math.formatBytes(0)).assertEqual('0 B');
+      expect(Ndt7Math.formatBytes(-100)).assertEqual('0 B');
+      expect(Ndt7Math.formatBytes(NaN)).assertEqual('0 B');
       expect(Ndt7Math.formatBytes(1024)).assertEqual('1.00 KB');
       expect(Ndt7Math.formatBytes(1048576)).assertEqual('1.00 MB');
       expect(Ndt7Math.formatBytes(15728640)).assertEqual('15.00 MB');
@@ -88,7 +101,6 @@ export default function localUnitTest() {
     });
 
     it('simulatesDynamicUploadMessageScalingPerSpec', 0, () => {
-      // Simulates the exact spec appendix scaling rule
       let messageSize = Ndt7Constants.INITIAL_UPLOAD_CHUNK_SIZE; // 8 KiB = 8192
       let totalSent = 0;
       const observedSizes: number[] = [];
@@ -134,7 +146,6 @@ export default function localUnitTest() {
       let threwPolicyError = false;
 
       try {
-        // Calling startTest without accepting policy and without inapplicable flag
         await client.startTest({
           server: 'test.example.com',
           userAcceptedDataPolicy: false,
@@ -147,6 +158,31 @@ export default function localUnitTest() {
       }
 
       expect(threwPolicyError).assertTrue();
+    });
+
+    it('enforcesSecureSchemeOnStandaloneDownloadAndUpload', 0, async () => {
+      const client = new Ndt7Client();
+      let threwSecurityErrorDownload = false;
+      let threwSecurityErrorUpload = false;
+
+      try {
+        await client.startDownload('ws://insecure.example.com/ndt/v7/download');
+      } catch (e) {
+        if (e instanceof Ndt7SecurityError) {
+          threwSecurityErrorDownload = true;
+        }
+      }
+
+      try {
+        await client.startUpload('ws://insecure.example.com/ndt/v7/upload');
+      } catch (e) {
+        if (e instanceof Ndt7SecurityError) {
+          threwSecurityErrorUpload = true;
+        }
+      }
+
+      expect(threwSecurityErrorDownload).assertTrue();
+      expect(threwSecurityErrorUpload).assertTrue();
     });
 
     it('parsesNormativeMeasurementJsonProperly', 0, () => {
@@ -180,20 +216,36 @@ export default function localUnitTest() {
       expect(measurement.TCPInfo?.BytesRetrans).assertEqual(1200);
     });
 
-    it('verifiesErrorTypesAndStatusCodes', 0, () => {
+    it('verifiesErrorHierarchyAndStatusCodes', 0, () => {
       const capacityError = new Ndt7LocateCapacityError();
+      expect(capacityError instanceof Error).assertTrue();
+      expect(capacityError instanceof Ndt7Error).assertTrue();
       expect(capacityError.statusCode).assertEqual(204);
-      expect(capacityError.code).assertEqual(204);
+      expect(capacityError.code).assertEqual(10008);
       expect(capacityError.errorCode).assertEqual('LOCATE_NO_CAPACITY');
 
       const timeoutError = new Ndt7TimeoutError('Timed out');
       expect(timeoutError.errorCode).assertEqual('TIMEOUT_ERROR');
+      expect(timeoutError.code).assertEqual(10006);
 
       const connError = new Ndt7ConnectionError('Refused');
       expect(connError.errorCode).assertEqual('CONNECTION_ERROR');
+      expect(connError.code).assertEqual(10004);
 
       const protoError = new Ndt7ProtocolError('Invalid frame');
       expect(protoError.errorCode).assertEqual('PROTOCOL_ERROR');
+      expect(protoError.code).assertEqual(10005);
+
+      const secError = new Ndt7SecurityError('Insecure scheme');
+      expect(secError.errorCode).assertEqual('SECURITY_ERROR');
+      expect(secError.code).assertEqual(10009);
+
+      const abortError = new Ndt7AbortError();
+      expect(abortError.errorCode).assertEqual('ABORTED');
+      expect(abortError.code).assertEqual(10007);
+
+      const defaultResult = new Ndt7TestResult();
+      expect(defaultResult.status).assertEqual('failed');
     });
 
   });

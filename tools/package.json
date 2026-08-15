@@ -2,7 +2,7 @@
   "name": "ndt7-tools",
   "version": "1.0.0",
   "description": "Wearable dev tools (mask screenshot emulator thành mặt tròn)",
-  "main": "index.js",
+  "main": "roundshot.mjs",
   "type": "module",
   "private": true,
   "dependencies": {

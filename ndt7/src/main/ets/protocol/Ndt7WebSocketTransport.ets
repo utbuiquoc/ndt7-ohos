@@ -1,7 +1,11 @@
 import { webSocket } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { Ndt7Constants } from '../utils/Ndt7Constants';
-import { Ndt7ConnectionError, Ndt7Error, Ndt7TimeoutError } from '../utils/Ndt7Errors';
+import { Ndt7ConnectionError, Ndt7Error, Ndt7SecurityError, Ndt7TimeoutError } from '../utils/Ndt7Errors';
+
+const DOMAIN = 0xA11A;
+const TAG = 'Ndt7Transport';
 
 export class WebSocketTransportCallbacks {
   public onOpen?: () => void;
@@ -18,6 +22,7 @@ export class Ndt7WebSocketTransport {
   private ws: webSocket.WebSocket;
   private isConnected: boolean = false;
   private isClosed: boolean = false;
+  private isLocallyClosed: boolean = false;
   private callbacks: WebSocketTransportCallbacks = new WebSocketTransportCallbacks();
   private connectTimerId: number = -1;
 
@@ -29,11 +34,32 @@ export class Ndt7WebSocketTransport {
     this.callbacks = callbacks;
   }
 
+  private detachListeners(): void {
+    try {
+      this.ws.off('open');
+      this.ws.off('message');
+      this.ws.off('close');
+      this.ws.off('error');
+    } catch (_) {
+      // Ignore cleanup error
+    }
+  }
+
   /**
    * Connects to the NDT7 WebSocket endpoint with the mandatory subprotocol header
    */
-  public connect(url: string, timeoutMs: number = Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS): Promise<void> {
+  public connect(url: string, timeoutMs: number = Ndt7Constants.DEFAULT_CONNECT_TIMEOUT_MS, allowInsecureTransport: boolean = false): Promise<void> {
     return new Promise<void>((resolve: () => void, reject: (reason?: Ndt7Error) => void) => {
+      // 1. Enforce secure transport
+      if (!url || (!url.startsWith('wss://') && (!allowInsecureTransport || !url.startsWith('ws://')))) {
+        const secErr = new Ndt7SecurityError(`Insecure or invalid WebSocket URL rejected: "${url}". wss:// is required.`);
+        reject(secErr);
+        return;
+      }
+
+      this.isClosed = false;
+      this.isLocallyClosed = false;
+      this.isConnected = false;
       let settled = false;
 
       const cleanupConnectTimer = (): void => {
@@ -52,47 +78,72 @@ export class Ndt7WebSocketTransport {
         }
       }, timeoutMs);
 
-      // 1. Listen for open event
+      // Clean any previously registered listeners to avoid duplicate callbacks
+      this.detachListeners();
+
+      // 2. Listen for open event
       this.ws.on('open', (_err: BusinessError, _value: Object) => {
-        this.isConnected = true;
-        cleanupConnectTimer();
-        if (!settled) {
-          settled = true;
-          if (this.callbacks.onOpen) {
-            this.callbacks.onOpen();
-          }
-          resolve();
+        if (this.isClosed || settled) {
+          return;
         }
+        this.isConnected = true;
+        settled = true;
+        cleanupConnectTimer();
+        if (this.callbacks.onOpen) {
+          try {
+            this.callbacks.onOpen();
+          } catch (e) {
+            hilog.warn(DOMAIN, TAG, 'onOpen callback error: %{public}s', String(e));
+          }
+        }
+        resolve();
       });
 
-      // 2. Listen for messages (binary and text)
+      // 3. Listen for messages (binary and text)
       this.ws.on('message', (_err: BusinessError, value: string | ArrayBuffer) => {
         if (this.isClosed) {
           return;
         }
         if (typeof value === 'string') {
           if (this.callbacks.onTextMessage) {
-            this.callbacks.onTextMessage(value);
+            try {
+              this.callbacks.onTextMessage(value);
+            } catch (e) {
+              hilog.warn(DOMAIN, TAG, 'onTextMessage callback error: %{public}s', String(e));
+            }
           }
         } else if (value instanceof ArrayBuffer) {
           if (this.callbacks.onBinaryMessage) {
-            this.callbacks.onBinaryMessage(value);
+            try {
+              this.callbacks.onBinaryMessage(value);
+            } catch (e) {
+              hilog.warn(DOMAIN, TAG, 'onBinaryMessage callback error: %{public}s', String(e));
+            }
           }
         }
       });
 
-      // 3. Listen for close event
+      // 4. Listen for close event
       this.ws.on('close', (_err: BusinessError, value: webSocket.CloseResult) => {
         this.isConnected = false;
         cleanupConnectTimer();
         const code = value ? value.code : 1000;
         const reason = value ? value.reason : 'Normal Closure';
-        if (this.callbacks.onClose && !this.isClosed) {
-          this.callbacks.onClose(code, reason);
+
+        if (!settled) {
+          settled = true;
+          const connErr = new Ndt7ConnectionError(`WebSocket closed before handshake completed: code=${code}, reason=${reason}`);
+          reject(connErr);
+        } else if (this.callbacks.onClose && !this.isLocallyClosed) {
+          try {
+            this.callbacks.onClose(code, reason);
+          } catch (e) {
+            hilog.warn(DOMAIN, TAG, 'onClose callback error: %{public}s', String(e));
+          }
         }
       });
 
-      // 4. Listen for error event
+      // 5. Listen for error event
       this.ws.on('error', (err: BusinessError) => {
         cleanupConnectTimer();
         const errMsg = err ? `code=${err.code}, msg=${err.message}` : 'WebSocket error';
@@ -101,11 +152,15 @@ export class Ndt7WebSocketTransport {
           settled = true;
           reject(connectionError);
         } else if (this.callbacks.onError && !this.isClosed) {
-          this.callbacks.onError(connectionError);
+          try {
+            this.callbacks.onError(connectionError);
+          } catch (e) {
+            hilog.warn(DOMAIN, TAG, 'onError callback error: %{public}s', String(e));
+          }
         }
       });
 
-      // 5. Initiate connection with subprotocol configuration
+      // 6. Initiate connection with subprotocol configuration
       const headers: Record<string, string> = {};
       headers['User-Agent'] = Ndt7Constants.USER_AGENT;
 
@@ -153,6 +208,7 @@ export class Ndt7WebSocketTransport {
       return;
     }
     this.isClosed = true;
+    this.isLocallyClosed = true;
     this.isConnected = false;
     if (this.connectTimerId !== -1) {
       clearTimeout(this.connectTimerId);
@@ -174,13 +230,6 @@ export class Ndt7WebSocketTransport {
    */
   public destroy(): void {
     this.close();
-    try {
-      this.ws.off('open');
-      this.ws.off('message');
-      this.ws.off('close');
-      this.ws.off('error');
-    } catch (_) {
-      // Ignored
-    }
+    this.detachListeners();
   }
 }

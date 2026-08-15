@@ -9,15 +9,15 @@ export default class EntryAbility extends UIAbility {
   onCreate(_want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
-    } catch (_) {
-      hilog.warn(DOMAIN, TAG, 'Failed to set dark mode');
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Failed to set dark mode: %{public}s', String(err));
     }
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     windowStage.loadContent('pages/MainPage', (error) => {
-      if (error.code) {
-        hilog.error(DOMAIN, TAG, 'Failed to load MainPage: %{public}d', error.code);
+      if (error && error.code) {
+        hilog.error(DOMAIN, TAG, 'Failed to load MainPage: code=%{public}d, message=%{public}s', error.code, error.message || '');
       }
     });
   }

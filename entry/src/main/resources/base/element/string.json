@@ -15,6 +15,126 @@
     {
       "name": "internet_reason",
       "value": "Needed to perform network diagnostic tests to M-Lab servers"
+    },
+    {
+      "name": "ndt7_title",
+      "value": "NDT7 SPEEDTEST"
+    },
+    {
+      "name": "status_ready",
+      "value": "Ready"
+    },
+    {
+      "name": "status_finding_server",
+      "value": "Finding Server..."
+    },
+    {
+      "name": "status_connecting_download",
+      "value": "Connecting Download..."
+    },
+    {
+      "name": "status_testing_download",
+      "value": "Testing Download..."
+    },
+    {
+      "name": "status_connecting_upload",
+      "value": "Connecting Upload..."
+    },
+    {
+      "name": "status_testing_upload",
+      "value": "Testing Upload..."
+    },
+    {
+      "name": "status_completed",
+      "value": "Test Completed"
+    },
+    {
+      "name": "status_canceled",
+      "value": "Canceled"
+    },
+    {
+      "name": "status_failed",
+      "value": "Test Failed"
+    },
+    {
+      "name": "label_download",
+      "value": "DOWNLOAD"
+    },
+    {
+      "name": "label_upload",
+      "value": "UPLOAD"
+    },
+    {
+      "name": "label_mbps",
+      "value": "Mbps"
+    },
+    {
+      "name": "label_rtt",
+      "value": "RTT"
+    },
+    {
+      "name": "label_loss",
+      "value": "Loss"
+    },
+    {
+      "name": "label_server_auto",
+      "value": "Server: Auto (M-Lab Locate)"
+    },
+    {
+      "name": "btn_start_test",
+      "value": "START TEST"
+    },
+    {
+      "name": "btn_cancel",
+      "value": "CANCEL"
+    },
+    {
+      "name": "policy_title",
+      "value": "M-Lab Data Policy"
+    },
+    {
+      "name": "policy_badge",
+      "value": "Open Research Notice"
+    },
+    {
+      "name": "policy_sec1_title",
+      "value": "1. NDT7 Overview"
+    },
+    {
+      "name": "policy_sec1_body",
+      "value": "NDT7 (Network Diagnostic Tool) performs active network tests to measure throughput, round-trip latency, and packet loss using M-Lab open infrastructure."
+    },
+    {
+      "name": "policy_sec2_title",
+      "value": "2. Data Collected"
+    },
+    {
+      "name": "policy_sec2_body",
+      "value": "• Public IP address & approximate ISP/AS network\n• Download & upload throughput measurements\n• TCP diagnostics (RTT, jitter, retransmission)\n• Timestamps and test duration"
+    },
+    {
+      "name": "policy_sec3_title",
+      "value": "3. Public Open Data Sharing"
+    },
+    {
+      "name": "policy_sec3_body",
+      "value": "All measurement results are published publicly and permanently in M-Lab's open research dataset (BigQuery and Google Cloud Storage) to support global Internet research."
+    },
+    {
+      "name": "policy_sec4_title",
+      "value": "4. Privacy & Consent"
+    },
+    {
+      "name": "policy_sec4_body",
+      "value": "No personal identification, contacts, device files, or precise GPS coordinates are ever accessed. By clicking Agree, you accept the M-Lab Data Policy."
+    },
+    {
+      "name": "policy_scroll_cue",
+      "value": "End of Policy • Scroll up to review"
+    },
+    {
+      "name": "btn_agree_continue",
+      "value": "AGREE"
     }
   ]
 }

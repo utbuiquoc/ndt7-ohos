@@ -35,19 +35,43 @@ function parseArgs(argv) {
   const opts = { out: null, suffix: '_round', crop: null, trim: true, inplace: false, quiet: false, inputs: [] }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '-o' || a === '--out') opts.out = argv[++i]
-    else if (a === '--suffix') opts.suffix = argv[++i]
-    else if (a === '--crop') opts.crop = argv[++i].split(',').map(Number)
-    else if (a === '--no-trim') opts.trim = false
-    else if (a === '--inplace') opts.inplace = true
-    else if (a === '--quiet' || a === '-q') opts.quiet = true
-    else if (a === '-h' || a === '--help') { printHelp(); process.exit(0) }
-    else opts.inputs.push(a)
+    if (a === '-o' || a === '--out') {
+      if (i + 1 >= argv.length) fail(`Tùy chọn ${a} yêu cầu đường dẫn thư mục xuất`)
+      opts.out = argv[++i]
+    } else if (a === '--suffix') {
+      if (i + 1 >= argv.length) fail('Tùy chọn --suffix yêu cầu chuỗi hậu tố')
+      opts.suffix = argv[++i]
+    } else if (a === '--crop') {
+      if (i + 1 >= argv.length) fail('Tùy chọn --crop yêu cầu 4 số: x,y,w,h')
+      opts.crop = argv[++i].split(',').map(Number)
+    } else if (a === '--no-trim') {
+      opts.trim = false
+    } else if (a === '--inplace') {
+      opts.inplace = true
+    } else if (a === '--quiet' || a === '-q') {
+      opts.quiet = true
+    } else if (a === '-h' || a === '--help') {
+      printHelp()
+      process.exit(0)
+    } else {
+      opts.inputs.push(a)
+    }
   }
-  if (opts.crop && (opts.crop.length !== 4 || opts.crop.some(n => !Number.isFinite(n) || n < 0))) {
-    fail('--crop cần 4 số: x,y,w,h')
+
+  if (opts.crop) {
+    if (opts.crop.length !== 4 || opts.crop.some(n => !Number.isInteger(n) || n < 0)) {
+      fail('--crop cần 4 số nguyên không âm: x,y,w,h')
+    }
+    const [, , w, h] = opts.crop
+    if (w <= 0 || h <= 0) {
+      fail('--crop chiều rộng và chiều cao phải lớn hơn 0')
+    }
   }
-  if (opts.inputs.length === 0) { printHelp(); process.exit(1) }
+
+  if (opts.inputs.length === 0) {
+    printHelp()
+    process.exit(1)
+  }
   return opts
 }
 
@@ -67,7 +91,7 @@ function log(opts, msg) {
 /**
  * Tự cắt viền đồng màu quanh ảnh (bezel emulator / title bar cửa sổ preview):
  * từ mỗi cạnh, dò vào trong đến hàng/cột đầu tiên khác màu góc (dung sai 28).
- * Trả về bbox {x,y,w,h}; nếu ảnh vốn đã "sạch" → trả về toàn bộ ảnh.
+ * Trả về bbox {x,y,w,h}; nếu ảnh vốn đã "sạch" hoặc đồng màu toàn bộ → trả về toàn bộ ảnh.
  */
 function autoTrim(img) {
   const { width: W, height: H } = img.bitmap
@@ -78,15 +102,63 @@ function autoTrim(img) {
     const i = (y * W + x) * 4
     return Math.abs(d[i] - ref[0]) > TOL || Math.abs(d[i + 1] - ref[1]) > TOL || Math.abs(d[i + 2] - ref[2]) > TOL
   }
+
   let top = 0
-  outer: for (; top < H; top++) for (let x = 0; x < W; x++) if (differs(x, top)) break outer
+  let foundTop = false
+  for (; top < H; top++) {
+    for (let x = 0; x < W; x++) {
+      if (differs(x, top)) {
+        foundTop = true
+        break
+      }
+    }
+    if (foundTop) break
+  }
+
+  // Nếu toàn bộ ảnh là một màu thuần túy, giữ nguyên toàn bộ ảnh
+  if (!foundTop) {
+    return { x: 0, y: 0, w: W, h: H }
+  }
+
   let bottom = H - 1
-  outer2: for (; bottom > top; bottom--) for (let x = 0; x < W; x++) if (differs(x, bottom)) break outer2
+  let foundBottom = false
+  for (; bottom > top; bottom--) {
+    for (let x = 0; x < W; x++) {
+      if (differs(x, bottom)) {
+        foundBottom = true
+        break
+      }
+    }
+    if (foundBottom) break
+  }
+
   let left = 0
-  outer3: for (; left < W; left++) for (let y = top; y <= bottom; y++) if (differs(left, y)) break outer3
+  let foundLeft = false
+  for (; left < W; left++) {
+    for (let y = top; y <= bottom; y++) {
+      if (differs(left, y)) {
+        foundLeft = true
+        break
+      }
+    }
+    if (foundLeft) break
+  }
+
   let right = W - 1
-  outer4: for (; right > left; right--) for (let y = top; y <= bottom; y++) if (differs(right, y)) break outer4
-  return { x: left, y: top, w: right - left + 1, h: bottom - top + 1 }
+  let foundRight = false
+  for (; right > left; right--) {
+    for (let y = top; y <= bottom; y++) {
+      if (differs(right, y)) {
+        foundRight = true
+        break
+      }
+    }
+    if (foundRight) break
+  }
+
+  const w = right - left + 1
+  const h = bottom - top + 1
+  return { x: left, y: top, w, h }
 }
 
 /**
@@ -122,11 +194,17 @@ async function processOne(input, opts) {
   let W = img.bitmap.width
   let H = img.bitmap.height
 
+  if (W <= 0 || H <= 0) {
+    throw new Error(`Ảnh có kích thước không hợp lệ: ${W}×${H}`)
+  }
+
   // 1) crop thủ công nếu yêu cầu
   let box = { x: 0, y: 0, w: W, h: H }
   if (opts.crop) {
     const [x, y, w, h] = opts.crop
-    if (x + w > W || y + h > H) fail(`--crop vượt ngoài ảnh ${W}×${H}: ${opts.crop.join(',')}`)
+    if (x + w > W || y + h > H) {
+      throw new Error(`--crop vượt ngoài ảnh ${W}×${H}: ${opts.crop.join(',')}`)
+    }
     img.crop({ x, y, w, h })
     box = { x: 0, y: 0, w, h }
     W = w; H = h
@@ -134,7 +212,7 @@ async function processOne(input, opts) {
   } else if (opts.trim && W !== H) {
     // 2) ảnh chữ nhật → khả năng cao dính viền cửa sổ emulator: tự trim
     const t = autoTrim(img)
-    if (t.w < W || t.h < H) {
+    if (t.w > 0 && t.h > 0 && (t.w < W || t.h < H)) {
       img.crop({ x: t.x, y: t.y, w: t.w, h: t.h })
       log(opts, `${basename(input)}: auto-trim viền ${W}×${H} → ${t.w}×${t.h}`)
       box = { x: 0, y: 0, w: t.w, h: t.h }
@@ -173,7 +251,11 @@ const files = []
 for (const p of opts.inputs) {
   const abs = resolve(p)
   let st
-  try { st = statSync(abs) } catch { fail(`không tìm thấy: ${p}`) }
+  try {
+    st = statSync(abs)
+  } catch {
+    fail(`không tìm thấy: ${p}`)
+  }
   if (st.isDirectory()) {
     for (const f of readdirSync(abs)) {
       if (IMG_EXT.has(extname(f).toLowerCase()) && !f.endsWith(opts.suffix + '.png')) {
@@ -187,12 +269,20 @@ for (const p of opts.inputs) {
 if (files.length === 0) fail('không có ảnh nào để xử lý')
 
 const results = []
+let failCount = 0
 for (const f of files) {
   try {
-    results.push(await processOne(f, opts))
+    const res = await processOne(f, opts)
+    results.push(res)
   } catch (e) {
-    fail(`${basename(f)}: ${e.message}`)
+    failCount++
+    console.error(`[roundshot] LỖI xử lý ${basename(f)}: ${e.message}`)
   }
 }
+
 if (opts.quiet) results.forEach(r => console.log(r))
-log(opts, `xong ${results.length}/${files.length} ảnh — chỉ đưa file *_round.png cho agent xem`)
+log(opts, `Hoàn thành: ${results.length} thành công, ${failCount} thất bại trên tổng số ${files.length} ảnh`)
+
+if (failCount > 0) {
+  process.exit(1)
+}

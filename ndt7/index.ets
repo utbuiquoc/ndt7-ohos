@@ -35,5 +35,6 @@ export {
   Ndt7ConnectionError,
   Ndt7ProtocolError,
   Ndt7TimeoutError,
-  Ndt7AbortError
+  Ndt7AbortError,
+  Ndt7SecurityError
 } from './src/main/ets/utils/Ndt7Errors';

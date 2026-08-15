@@ -132,6 +132,11 @@ export class Ndt7Config {
   public metadata?: Record<string, string>;
   public userAcceptedDataPolicy?: boolean;
   public mlabDataPolicyInapplicable?: boolean;
+  /**
+   * WARNING: Disables TLS enforcement for all connections (ws://, http://).
+   * Should only be used for local testing/development. Never enable in production.
+   */
+  public allowInsecureTransport?: boolean;
   public maxRetries?: number;
   public retryDelayMs?: number;
 }
@@ -142,7 +147,7 @@ export class Ndt7TestResult {
   public upload?: Ndt7SpeedSummary;
   public startTimeMs: number = 0;
   public endTimeMs: number = 0;
-  public status: 'completed' | 'canceled' | 'failed' = 'completed';
+  public status: 'completed' | 'canceled' | 'failed' = 'failed';
   public errorMessage?: string;
 }
 

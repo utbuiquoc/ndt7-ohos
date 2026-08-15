@@ -6,6 +6,7 @@ import {
   ArcButtonOptions,
   ArcButtonPosition,
   ArcButtonStyleMode,
+  ArcScrollBar,
   ColorMetrics
 } from '@kit.ArkUI';
 
@@ -14,15 +15,28 @@ import {
 struct MainPage {
   @State viewModel: SpeedTestViewModel = new SpeedTestViewModel();
   @State refreshTrigger: number = 0;
+  @State hasAcceptedPolicy: boolean = false;
+  @State isCheckingPolicy: boolean = true;
+  private policyScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
-    this.viewModel.setContext(getContext(this));
+    const ctx = getContext(this);
+    this.viewModel.setContext(ctx);
     this.viewModel.setOnUpdate(() => {
       this.refreshTrigger++;
+    });
+
+    this.viewModel.loadConsent(ctx).then((accepted: boolean) => {
+      this.hasAcceptedPolicy = accepted;
+      this.isCheckingPolicy = false;
+    }).catch(() => {
+      this.hasAcceptedPolicy = false;
+      this.isCheckingPolicy = false;
     });
   }
 
   aboutToDisappear(): void {
+    this.viewModel.setOnUpdate(undefined);
     if (this.viewModel.isRunning()) {
       this.viewModel.cancelSpeedTest();
     }
@@ -31,161 +45,302 @@ struct MainPage {
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
-      // Main Center Content
-      Column() {
-        // 1. App Title
-        Text('NDT7 SPEEDTEST')
-          .fontSize(14)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .margin({ top: 26, bottom: 4 })
-
-        // 2. Status Capsule Badge
-        Text(this.getStatusLabel())
-          .fontSize(10)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.getStateColor(this.viewModel.state))
-          .padding({ left: 10, right: 10, top: 3, bottom: 3 })
-          .backgroundColor('#1A1A1E')
-          .borderRadius(12)
-          .margin({ bottom: 10 })
-
-        // 3. Main Speed Dual Card
-        Row() {
-          // Download Column
+      if (this.isCheckingPolicy) {
+        // Initial silent loading placeholder
+        Column()
+          .width('100%')
+          .height('100%')
+      } else if (!this.hasAcceptedPolicy) {
+        // ─── First-Launch M-Lab Data Policy Consent Screen (Unified Full-Height Document) ───
+        Scroll(this.policyScroller) {
           Column() {
-            Row() {
-              Text('↓')
-                .fontSize(11)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#00E5FF')
-                .margin({ right: 2 })
-              Text('DOWNLOAD')
-                .fontSize(9)
-                .fontWeight(FontWeight.Medium)
-                .fontColor('#8E8E93')
-            }
+            // 1. Policy Header
+            Text($r('app.string.policy_title'))
+              .fontSize(15)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#FFFFFF')
+              .margin({ top: 26, bottom: 4 })
 
-            Text(`${this.viewModel.downloadMbps.toFixed(1)}`)
-              .fontSize(22)
-              .fontWeight(FontWeight.Bolder)
-              .fontColor(this.viewModel.state === Ndt7State.DOWNLOAD_RUNNING ? '#00E5FF' : '#FFFFFF')
-              .margin({ top: 2, bottom: 1 })
-
-            Text('Mbps')
+            Text($r('app.string.policy_badge'))
               .fontSize(9)
-              .fontColor('#8E8E93')
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.ndt7_accent_download'))
+              .backgroundColor($r('app.color.ndt7_badge_bg'))
+              .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+              .borderRadius(10)
+              .margin({ bottom: 12 })
 
-          // Vertical Divider
-          Divider()
-            .vertical(true)
-            .height(44)
-            .color('#2C2C2E')
+            // 2. Single Continuous Policy Document Card
+            Column({ space: 10 }) {
+              // Section 1
+              Column({ space: 3 }) {
+                Text($r('app.string.policy_sec1_title'))
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.ndt7_accent_download'))
+                Text($r('app.string.policy_sec1_body'))
+                  .fontSize(10)
+                  .fontColor($r('app.color.ndt7_text_secondary'))
+                  .lineHeight(14)
+              }
+              .alignItems(HorizontalAlign.Start)
+              .width('100%')
 
-          // Upload Column
-          Column() {
-            Row() {
-              Text('↑')
-                .fontSize(11)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#00E676')
-                .margin({ right: 2 })
-              Text('UPLOAD')
+              Divider().color($r('app.color.ndt7_divider')).height(1)
+
+              // Section 2
+              Column({ space: 3 }) {
+                Text($r('app.string.policy_sec2_title'))
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.ndt7_accent_download'))
+                Text($r('app.string.policy_sec2_body'))
+                  .fontSize(10)
+                  .fontColor($r('app.color.ndt7_text_secondary'))
+                  .lineHeight(14)
+              }
+              .alignItems(HorizontalAlign.Start)
+              .width('100%')
+
+              Divider().color($r('app.color.ndt7_divider')).height(1)
+
+              // Section 3
+              Column({ space: 3 }) {
+                Text($r('app.string.policy_sec3_title'))
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.ndt7_accent_download'))
+                Text($r('app.string.policy_sec3_body'))
+                  .fontSize(10)
+                  .fontColor($r('app.color.ndt7_text_secondary'))
+                  .lineHeight(14)
+              }
+              .alignItems(HorizontalAlign.Start)
+              .width('100%')
+
+              Divider().color($r('app.color.ndt7_divider')).height(1)
+
+              // Section 4
+              Column({ space: 3 }) {
+                Text($r('app.string.policy_sec4_title'))
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.ndt7_accent_download'))
+                Text($r('app.string.policy_sec4_body'))
+                  .fontSize(10)
+                  .fontColor($r('app.color.ndt7_text_secondary'))
+                  .lineHeight(14)
+              }
+              .alignItems(HorizontalAlign.Start)
+              .width('100%')
+
+              // Document End Cue
+              Text($r('app.string.policy_scroll_cue'))
                 .fontSize(9)
-                .fontWeight(FontWeight.Medium)
-                .fontColor('#8E8E93')
+                .fontColor($r('app.color.ndt7_text_tertiary'))
+                .textAlign(TextAlign.Center)
+                .width('100%')
+                .margin({ top: 4 })
             }
-
-            Text(`${this.viewModel.uploadMbps.toFixed(1)}`)
-              .fontSize(22)
-              .fontWeight(FontWeight.Bolder)
-              .fontColor(this.viewModel.state === Ndt7State.UPLOAD_RUNNING ? '#00E676' : '#FFFFFF')
-              .margin({ top: 2, bottom: 1 })
-
-            Text('Mbps')
-              .fontSize(9)
-              .fontColor('#8E8E93')
+            .width('86%')
+            .padding({ top: 12, bottom: 12, left: 10, right: 10 })
+            .backgroundColor($r('app.color.ndt7_card_bg'))
+            .borderRadius(16)
+            .alignItems(HorizontalAlign.Start)
           }
-          .layoutWeight(1)
+          .width('100%')
+          .padding({ bottom: 78 })
           .alignItems(HorizontalAlign.Center)
         }
-        .width('82%')
-        .padding({ top: 8, bottom: 8, left: 6, right: 6 })
-        .backgroundColor('#141416')
-        .borderRadius(16)
-        .margin({ bottom: 8 })
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
 
-        // 4. Latency & Retransmission Diagnostics
-        Row() {
-          Row() {
-            Text('RTT')
-              .fontSize(9)
-              .fontColor('#8E8E93')
-              .margin({ right: 4 })
-            Text(this.viewModel.latencyMs > 0 ? `${this.viewModel.latencyMs} ms` : '--')
-              .fontSize(10)
-              .fontWeight(FontWeight.Medium)
-              .fontColor('#FFFFFF')
-          }
-          .margin({ right: 14 })
-
-          Row() {
-            Text('Loss')
-              .fontSize(9)
-              .fontColor('#8E8E93')
-              .margin({ right: 4 })
-            Text(this.viewModel.retransPercent > 0 ? `${this.viewModel.retransPercent}%` : '0%')
-              .fontSize(10)
-              .fontWeight(FontWeight.Medium)
-              .fontColor('#FFFFFF')
-          }
-        }
-        .margin({ bottom: 4 })
-
-        // 5. Server Info
-        Text(this.getServerDisplay())
-          .fontSize(9)
-          .fontColor('#636366')
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('72%')
-          .textAlign(TextAlign.Center)
-      }
-      .width('100%')
-      .height('100%')
-      .alignItems(HorizontalAlign.Center)
-      .justifyContent(FlexAlign.Start)
-
-      // 6. ArcButton attached cleanly to the circular bottom edge
-      if (this.viewModel.isRunning()) {
-        ArcButton({
-          options: new ArcButtonOptions({
-            position: ArcButtonPosition.BOTTOM_EDGE,
-            styleMode: ArcButtonStyleMode.CUSTOM,
-            backgroundColor: ColorMetrics.resourceColor('#D50000'),
-            fontColor: ColorMetrics.resourceColor('#FFFFFF'),
-            label: 'CANCEL',
-            onClick: () => {
-              this.viewModel.cancelSpeedTest();
-            }
-          })
+        // Arc ScrollBar curving along the circular bezel
+        ArcScrollBar({
+          scroller: this.policyScroller
         })
-      } else {
+
+        // 3. Agree Arc Button - Floats over the bottom arc, shifted closer to bezel
         ArcButton({
           options: new ArcButtonOptions({
             position: ArcButtonPosition.BOTTOM_EDGE,
             styleMode: ArcButtonStyleMode.CUSTOM,
-            backgroundColor: ColorMetrics.resourceColor('#00E5FF'),
+            backgroundColor: ColorMetrics.resourceColor($r('app.color.ndt7_accent_download')),
             fontColor: ColorMetrics.resourceColor('#000000'),
-            label: 'START TEST',
+            label: $r('app.string.btn_agree_continue'),
             onClick: () => {
-              this.viewModel.startSpeedTest(getContext(this));
+              this.viewModel.acceptPolicy(getContext(this)).then(() => {
+                this.hasAcceptedPolicy = true;
+              });
             }
           })
         })
+        .offset({ y: 4 })
+      } else {
+        // ─── Main Speed Test Dashboard ───
+        Column() {
+          // Unconditionally rendered invisible state observer ensuring ArkUI re-renders on ViewModel notifications
+          Text(String(this.refreshTrigger))
+            .width(0)
+            .height(0)
+            .visibility(Visibility.None)
+
+          // 1. App Title
+          Text($r('app.string.ndt7_title'))
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+            .margin({ top: 26, bottom: 4 })
+
+          // 2. Status Capsule Badge
+          Text(this.getStatusLabel())
+            .fontSize(10)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.getStateColor(this.viewModel.state))
+            .padding({ left: 10, right: 10, top: 3, bottom: 3 })
+            .backgroundColor($r('app.color.ndt7_badge_bg'))
+            .borderRadius(12)
+            .margin({ bottom: 10 })
+
+          // 3. Main Speed Dual Card
+          Row() {
+            // Download Column
+            Column() {
+              Row() {
+                Text('↓')
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.ndt7_accent_download'))
+                  .margin({ right: 2 })
+                Text($r('app.string.label_download'))
+                  .fontSize(9)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.ndt7_text_secondary'))
+              }
+
+              Text(`${this.viewModel.downloadMbps.toFixed(1)}`)
+                .fontSize(22)
+                .fontWeight(FontWeight.Bolder)
+                .fontColor(this.viewModel.state === Ndt7State.DOWNLOAD_RUNNING ? '#00E5FF' : '#FFFFFF')
+                .margin({ top: 2, bottom: 1 })
+
+              Text($r('app.string.label_mbps'))
+                .fontSize(9)
+                .fontColor($r('app.color.ndt7_text_secondary'))
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+
+            // Vertical Divider
+            Divider()
+              .vertical(true)
+              .height(44)
+              .color($r('app.color.ndt7_divider'))
+
+            // Upload Column
+            Column() {
+              Row() {
+                Text('↑')
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.ndt7_accent_upload'))
+                  .margin({ right: 2 })
+                Text($r('app.string.label_upload'))
+                  .fontSize(9)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.ndt7_text_secondary'))
+              }
+
+              Text(`${this.viewModel.uploadMbps.toFixed(1)}`)
+                .fontSize(22)
+                .fontWeight(FontWeight.Bolder)
+                .fontColor(this.viewModel.state === Ndt7State.UPLOAD_RUNNING ? '#00E676' : '#FFFFFF')
+                .margin({ top: 2, bottom: 1 })
+
+              Text($r('app.string.label_mbps'))
+                .fontSize(9)
+                .fontColor($r('app.color.ndt7_text_secondary'))
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+          }
+          .width('82%')
+          .padding({ top: 8, bottom: 8, left: 6, right: 6 })
+          .backgroundColor($r('app.color.ndt7_card_bg'))
+          .borderRadius(16)
+          .margin({ bottom: 8 })
+
+          // 4. Latency & Retransmission Diagnostics
+          Row() {
+            Row() {
+              Text($r('app.string.label_rtt'))
+                .fontSize(9)
+                .fontColor($r('app.color.ndt7_text_secondary'))
+                .margin({ right: 4 })
+              Text(this.viewModel.latencyMs > 0 ? `${this.viewModel.latencyMs} ms` : '--')
+                .fontSize(10)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#FFFFFF')
+            }
+            .margin({ right: 14 })
+
+            Row() {
+              Text($r('app.string.label_loss'))
+                .fontSize(9)
+                .fontColor($r('app.color.ndt7_text_secondary'))
+                .margin({ right: 4 })
+              Text(this.viewModel.retransPercent > 0 ? `${this.viewModel.retransPercent}%` : '0%')
+                .fontSize(10)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#FFFFFF')
+            }
+          }
+          .margin({ bottom: 4 })
+
+          // 5. Server Info
+          Text(this.getServerDisplay())
+            .fontSize(9)
+            .fontColor($r('app.color.ndt7_text_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('72%')
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .height('100%')
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Start)
+
+        // 6. ArcButton attached cleanly to the circular bottom edge
+        if (this.viewModel.isRunning()) {
+          ArcButton({
+            options: new ArcButtonOptions({
+              position: ArcButtonPosition.BOTTOM_EDGE,
+              styleMode: ArcButtonStyleMode.CUSTOM,
+              backgroundColor: ColorMetrics.resourceColor($r('app.color.ndt7_btn_cancel_bg')),
+              fontColor: ColorMetrics.resourceColor('#FFFFFF'),
+              label: $r('app.string.btn_cancel'),
+              onClick: () => {
+                this.viewModel.cancelSpeedTest();
+              }
+            })
+          })
+        } else {
+          ArcButton({
+            options: new ArcButtonOptions({
+              position: ArcButtonPosition.BOTTOM_EDGE,
+              styleMode: ArcButtonStyleMode.CUSTOM,
+              backgroundColor: ColorMetrics.resourceColor($r('app.color.ndt7_accent_download')),
+              fontColor: ColorMetrics.resourceColor('#000000'),
+              label: $r('app.string.btn_start_test'),
+              onClick: () => {
+                this.viewModel.startSpeedTest(getContext(this));
+              }
+            })
+          })
+        }
       }
     }
     .width('100%')
@@ -193,59 +348,59 @@ struct MainPage {
     .backgroundColor('#000000')
   }
 
-  private getStatusLabel(): string {
+  private getStatusLabel(): ResourceStr {
     switch (this.viewModel.state) {
       case Ndt7State.IDLE:
-        return 'Ready';
+        return $r('app.string.status_ready');
       case Ndt7State.DISCOVERING:
-        return 'Finding Server...';
+        return $r('app.string.status_finding_server');
       case Ndt7State.DOWNLOAD_CONNECTING:
-        return 'Connecting Download...';
+        return $r('app.string.status_connecting_download');
       case Ndt7State.DOWNLOAD_RUNNING:
-        return 'Testing Download...';
+        return $r('app.string.status_testing_download');
       case Ndt7State.UPLOAD_CONNECTING:
-        return 'Connecting Upload...';
+        return $r('app.string.status_connecting_upload');
       case Ndt7State.UPLOAD_RUNNING:
-        return 'Testing Upload...';
+        return $r('app.string.status_testing_upload');
       case Ndt7State.COMPLETED:
-        return 'Test Completed';
+        return $r('app.string.status_completed');
       case Ndt7State.CANCELED:
-        return 'Canceled';
+        return $r('app.string.status_canceled');
       case Ndt7State.FAILED:
-        return 'Test Failed';
+        return $r('app.string.status_failed');
       default:
-        return this.viewModel.state;
+        return this.viewModel.statusMessage || String(this.viewModel.state);
     }
   }
 
-  private getServerDisplay(): string {
+  private getServerDisplay(): ResourceStr {
     if (this.viewModel.serverCity) {
       return `Server: ${this.viewModel.serverCity}`;
     }
     if (this.viewModel.serverName && this.viewModel.serverName !== 'Auto (Locate API)') {
       return `Server: ${this.viewModel.serverName}`;
     }
-    return 'Server: Auto (M-Lab Locate)';
+    return $r('app.string.label_server_auto');
   }
 
-  private getStateColor(state: Ndt7State): string {
+  private getStateColor(state: Ndt7State): ResourceColor {
     switch (state) {
       case Ndt7State.DISCOVERING:
-        return '#FFD600';
+        return $r('app.color.ndt7_accent_warn');
       case Ndt7State.DOWNLOAD_CONNECTING:
       case Ndt7State.DOWNLOAD_RUNNING:
-        return '#00E5FF';
+        return $r('app.color.ndt7_accent_download');
       case Ndt7State.UPLOAD_CONNECTING:
       case Ndt7State.UPLOAD_RUNNING:
-        return '#00E676';
+        return $r('app.color.ndt7_accent_upload');
       case Ndt7State.COMPLETED:
-        return '#76FF03';
+        return $r('app.color.ndt7_accent_success');
       case Ndt7State.CANCELED:
-        return '#FF9100';
+        return $r('app.color.ndt7_accent_canceled');
       case Ndt7State.FAILED:
-        return '#FF1744';
+        return $r('app.color.ndt7_accent_error');
       default:
-        return '#8E8E93';
+        return $r('app.color.ndt7_text_secondary');
     }
   }
 }

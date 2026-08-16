@@ -1,7 +1,7 @@
 {
   "app": {
-    "bundleName": "com.kuni.ndt7st",
-    "vendor": "mlab",
+    "bundleName": "com.kuni.ndt7arkts",
+    "vendor": "kuni",
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "icon": "$media:app_icon",

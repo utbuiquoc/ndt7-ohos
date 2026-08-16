@@ -12,20 +12,8 @@
   },
   "modules": [
     {
-      "name": "ndt7",
-      "srcPath": "./ndt7",
-      "targets": [
-        {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "entry",
-      "srcPath": "./entry",
+      "name": "ndt7arkts",
+      "srcPath": "./ndt7-arkts",
       "targets": [
         {
           "name": "default",

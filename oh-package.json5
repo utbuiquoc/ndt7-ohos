@@ -1,6 +1,6 @@
 {
   "modelVersion": "5.0.0",
-  "name": "ndt7-speed-test",
+  "name": "ndt7-arkts",
   "version": "1.0.0",
   "description": "M-Lab NDT7 Speed Test HarmonyOS ArkTS Client Library and Wearable Application",
   "main": "",

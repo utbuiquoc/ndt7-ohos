@@ -16,12 +16,12 @@ Designed as a standalone **HarmonyOS HAR library** (`@mlab/ndt7-ohos`) with zero
 - **Protocol Compliant**: Fully implements the authoritative NDT7 v0.11.0 specification.
 - **Server Discovery**: Automatic discovery of the nearest M-Lab server via M-Lab Locate API v2 with support for HTTP 200, 204 (No Capacity), and 3xx Redirects.
 - **WebSocket Transport**: Pure ArkTS implementation using `@kit.NetworkKit` with `net.measurementlab.ndt.v7` subprotocol negotiation.
-- **Download Goodput Test**: Real-time throughput measurement with ~100ms interval progress emissions and 13s hard watchdog protection.
+- **Download Goodput Test**: Real-time throughput measurement with ~100ms interval progress emissions and a dynamic hard watchdog (1.3× test duration).
 - **Upload Goodput Test**: Dynamic chunk scaling starting at 8 KiB (`1 << 13`), scaling by $2\times$ up to 16 MiB (`1 << 24`) per spec appendix, with single-buffer memory reuse.
 - **Normative TCP Diagnostics**: Ingests TCPInfo metrics including MinRTT, RTT, retransmission rate, and byte counters.
 - **Strict Data Policy Consent**: Enforces `userAcceptedDataPolicy === true` unless explicit `mlabDataPolicyInapplicable` is set.
 - **Cancellation / Abort**: Full cooperative cancellation support with instantaneous socket cleanup and state reset.
-- **Wearable & Multi-Device Ready**: Designed for smartwatches (circular 466x466), phones, tablets, and 2-in-1 devices.
+- **Wearable-First Sample App**: The bundled `entry` app targets smartwatches (circular 466x466, wearable-only `deviceTypes`); the library itself is device-agnostic and runs on phones, tablets, 2-in-1, and wearables.
 
 ---
 
@@ -50,11 +50,16 @@ ndt7-ohos/
 │       │       └── Ndt7Math.ets            # Bitrate math & formatting utilities
 │       └── test/
 │           └── LocalUnit.test.ets          # Hypium unit test suite
-├── entry/                                  # Wearable Test Harness App (HAP)
+├── entry/                                  # Wearable Speed Test App (HAP)
 │   └── src/main/ets/
 │       ├── entryability/EntryAbility.ets
 │       ├── viewmodel/SpeedTestViewModel.ets
-│       └── pages/MainPage.ets              # Circular wearable UI
+│       ├── utils/
+│       │   ├── ConsentPreferencesManager.ets  # M-Lab policy consent persistence
+│       │   └── ScreenAwakeManager.ets         # Keep-screen-on during tests
+│       └── pages/
+│           ├── MainPage.ets                # Circular dashboard + swipe pager + consent screen
+│           └── LegalInfoView.ets           # Privacy / About / License subpages
 └── build-profile.json5
 ```
 
@@ -92,8 +97,10 @@ Ensure `ohos.permission.INTERNET` is declared in your application's `module.json
 
 ### Complete Test Sequence (Discovery $\rightarrow$ Download $\rightarrow$ Upload)
 
+`startTest` resolves with an `Ndt7TestResult` (`status: 'completed'`) on success and **throws** an `Ndt7Error` subtype on failure or abortion (`Ndt7AbortError` after `client.abort()`). Always wrap the call:
+
 ```typescript
-import { Ndt7Client, Ndt7Config, Ndt7State, Ndt7SpeedSummary, Ndt7TestResult } from '@mlab/ndt7-ohos';
+import { Ndt7Client, Ndt7Config, Ndt7Error, Ndt7State, Ndt7SpeedSummary, Ndt7TestResult } from '@mlab/ndt7-ohos';
 
 const client = new Ndt7Client();
 
@@ -104,35 +111,41 @@ config.metadata = {
   client_version: '1.0.0'
 };
 
-const result: Ndt7TestResult = await client.startTest(config, {
-  onStateChange: (state: Ndt7State, message?: string) => {
-    console.info(`[NDT7 State] ${state}: ${message}`);
-  },
-  onServerChosen: (server) => {
-    console.info(`Connected to: ${server.machine}`);
-  },
-  onDownloadProgress: (summary: Ndt7SpeedSummary) => {
-    console.info(`Download speed: ${summary.mbps} Mbps`);
-  },
-  onDownloadComplete: (summary: Ndt7SpeedSummary) => {
-    console.info(`Download completed: ${summary.mbps} Mbps`);
-  },
-  onUploadProgress: (summary: Ndt7SpeedSummary) => {
-    console.info(`Upload speed: ${summary.mbps} Mbps`);
-  },
-  onUploadComplete: (summary: Ndt7SpeedSummary) => {
-    console.info(`Upload completed: ${summary.mbps} Mbps`);
-  },
-  onComplete: (res: Ndt7TestResult) => {
-    console.info(`Test complete: ↓ ${res.download?.mbps} Mbps, ↑ ${res.upload?.mbps} Mbps`);
-  },
-  onError: (error) => {
-    console.error(`Test failed: ${error.message}`);
-  }
-});
+try {
+  const result: Ndt7TestResult = await client.startTest(config, {
+    onStateChange: (state: Ndt7State, message?: string) => {
+      console.info(`[NDT7 State] ${state}: ${message}`);
+    },
+    onServerChosen: (server) => {
+      console.info(`Connected to: ${server.machine}`);
+    },
+    onDownloadProgress: (summary: Ndt7SpeedSummary) => {
+      console.info(`Download speed: ${summary.mbps} Mbps`);
+    },
+    onDownloadComplete: (summary: Ndt7SpeedSummary) => {
+      console.info(`Download completed: ${summary.mbps} Mbps`);
+    },
+    onUploadProgress: (summary: Ndt7SpeedSummary) => {
+      console.info(`Upload speed: ${summary.mbps} Mbps`);
+    },
+    onUploadComplete: (summary: Ndt7SpeedSummary) => {
+      console.info(`Upload completed: ${summary.mbps} Mbps`);
+    },
+    onComplete: (res: Ndt7TestResult) => {
+      console.info(`Test complete: ↓ ${res.download?.mbps} Mbps, ↑ ${res.upload?.mbps} Mbps`);
+    }
+  });
+  console.info(`Final status: ${result.status}`);
+} catch (error) {
+  // Ndt7Error subtype; Ndt7AbortError is thrown when the test was aborted via client.abort()
+  const err = error as Ndt7Error;
+  console.error(`Test failed: ${err.errorCode}: ${err.message}`);
+}
 ```
 
 ### Standalone Download or Upload Test
+
+`startDownload` / `startUpload` follow the same contract: they resolve with an `Ndt7SpeedSummary` on success and throw an `Ndt7Error` on failure, so wrap them in try/catch as shown above.
 
 ```typescript
 // Run only download test against a specific M-Lab WSS endpoint

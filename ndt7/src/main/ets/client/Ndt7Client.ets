@@ -228,12 +228,15 @@ export class Ndt7Client {
 
       if (this.isAborted || error instanceof Ndt7AbortError || this.runGeneration !== currentGen) {
         this.setState(Ndt7State.CANCELED, 'Test was aborted', callbacks, currentGen);
-        const canceledResult = new Ndt7TestResult();
-        canceledResult.startTimeMs = startTimeMs;
-        canceledResult.endTimeMs = Date.now();
-        canceledResult.status = 'canceled';
-        canceledResult.errorMessage = 'Aborted by user';
-        return canceledResult;
+        const abortErr = new Ndt7AbortError();
+        if (callbacks && callbacks.onError) {
+          try {
+            callbacks.onError(abortErr);
+          } catch (e) {
+            hilog.warn(DOMAIN, TAG, 'onError callback error: %{public}s', String(e));
+          }
+        }
+        throw abortErr;
       }
 
       this.setState(Ndt7State.FAILED, error.message, callbacks, currentGen);
@@ -245,12 +248,7 @@ export class Ndt7Client {
         }
       }
 
-      const failedResult = new Ndt7TestResult();
-      failedResult.startTimeMs = startTimeMs;
-      failedResult.endTimeMs = Date.now();
-      failedResult.status = 'failed';
-      failedResult.errorMessage = error.message;
-      return failedResult;
+      throw error;
     }
   }
 

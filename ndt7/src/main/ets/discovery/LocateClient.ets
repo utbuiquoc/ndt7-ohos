@@ -192,6 +192,9 @@ export class LocateClient {
       }
 
       // Handle HTTP 3xx Redirects
+      // Note: HarmonyOS @kit.NetworkKit http.request() automatically follows standard 3xx redirects in netstack.
+      // The explicit 3xx handling below serves as a defensive fallback for proxies/gateways or custom runtime
+      // environments that pass 3xx status codes directly without following them.
       if (statusCode === 301 || statusCode === 302 || statusCode === 307 || statusCode === 308) {
         const responseHeaders = response.header as Record<string, string>;
         const redirectUrl = responseHeaders ? (responseHeaders['location'] || responseHeaders['Location']) : undefined;
@@ -258,9 +261,8 @@ export class LocateClient {
     const queryIndex = finalUrl.indexOf('?');
     if (queryIndex !== -1) {
       const queryString = finalUrl.substring(queryIndex + 1);
-      const destBuffer = new Uint8Array(queryString.length * 4);
-      const encodeResult = LocateClient.encoder.encodeInto(queryString, destBuffer);
-      const byteLength: number = encodeResult.written;
+      const encoded = LocateClient.encoder.encodeInto(queryString);
+      const byteLength: number = encoded.byteLength;
       if (byteLength > Ndt7Constants.MAX_QUERY_STRING_LENGTH) {
         return `${rawUrl}${separator}client_library_name=${Ndt7Constants.CLIENT_LIBRARY_NAME}&client_library_version=${Ndt7Constants.CLIENT_LIBRARY_VERSION}`;
       }

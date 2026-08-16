@@ -26,7 +26,6 @@ export default function localUnitTest() {
       expect(Ndt7Constants.INITIAL_UPLOAD_CHUNK_SIZE).assertEqual(8192);
       expect(Ndt7Constants.MAX_UPLOAD_CHUNK_SIZE).assertEqual(16777216); // 16 MiB (1 << 24)
       expect(Ndt7Constants.DEFAULT_TEST_DURATION_MS).assertEqual(10000);
-      expect(Ndt7Constants.HARD_WATCHDOG_TIMEOUT_MS).assertEqual(13000);
     });
 
     it('calculatesSpeedAccurately', 0, () => {

@@ -1,7 +1,7 @@
 {
   "name": "entry",
   "version": "1.0.0",
-  "description": "NDT7 Wearable Test Harness Application",
+  "description": "NDT7 Speed Test Wearable Application",
   "main": "",
   "author": "M-Lab / HarmonyOS Contributors",
   "license": "Apache-2.0",

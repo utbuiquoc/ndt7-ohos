@@ -19,10 +19,17 @@ GEMINI.md
 .env*
 *.secret
 
-# Logs and temp files
+# Logs, captures, and scratch media
 *.log
+.captures/
 screen*.jpeg
 screen*.png
+s_*.jpeg
+s_*.png
+tools/*.png
+tools/*.jpeg
+tools/*.jpg
+tools/package-lock.json
 
 # OS files
 .DS_Store

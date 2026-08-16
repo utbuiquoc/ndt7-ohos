@@ -1,8 +1,8 @@
 {
   "modelVersion": "5.0.0",
-  "name": "ndt7-ohos-workspace",
+  "name": "ndt7-speed-test",
   "version": "1.0.0",
-  "description": "M-Lab NDT7 HarmonyOS ArkTS Client Library and Test Harness",
+  "description": "M-Lab NDT7 Speed Test HarmonyOS ArkTS Client Library and Wearable Application",
   "main": "",
   "author": "M-Lab / HarmonyOS Contributors",
   "license": "Apache-2.0",

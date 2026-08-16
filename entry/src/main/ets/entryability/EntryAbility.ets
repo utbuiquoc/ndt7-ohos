@@ -1,6 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { ScreenAwakeManager } from '../utils/ScreenAwakeManager';
 
 const DOMAIN = 0xA11A;
 const TAG = 'EntryAbility';
@@ -22,5 +23,11 @@ export default class EntryAbility extends UIAbility {
     });
   }
 
-  onDestroy(): void {}
+  onWindowStageDestroy(): void {
+    ScreenAwakeManager.reset();
+  }
+
+  onDestroy(): void {
+    ScreenAwakeManager.reset();
+  }
 }

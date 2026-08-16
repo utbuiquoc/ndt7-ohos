@@ -51,6 +51,59 @@
     {
       "name": "ndt7_text_tertiary",
       "value": "#636366"
+    },
+    {
+      "name": "ndt7_btn_agree_bg",
+      "value": "#007DFF"
+    },
+    {
+      "name": "ndt7_btn_decline_bg",
+      "value": "#1C2738"
+    },
+    {
+      "name": "ndt7_btn_decline_text",
+      "value": "#5291FF"
+    },
+    {
+      "name": "ndt7_text_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "ndt7_text_body",
+      "value": "#E0E0E0"
+    },
+    {
+      "name": "ndt7_text_desc",
+      "value": "#D8D8D8"
+    },
+    {
+      "name": "ndt7_card_item_bg",
+      "value": "#1A1A1D"
+    },
+    {
+      "name": "ndt7_card_button_bg",
+      "value": "#222225"
+    },
+    {
+      "name": "ndt7_chevron",
+      "value": "#68686C"
+    },
+    {
+      "name": "ndt7_icon_bg_privacy",
+      "value": "#1C2A3A"
+    },
+    {
+      "name": "ndt7_icon_bg_about",
+      "value": "#2C2A1E"
+    },
+    {
+      "name": "ndt7_icon_bg_license",
+      "value": "#1E2C22"
+    },
+    {
+      "name": "ndt7_icon_bg_reset",
+      "value": "#2E1E1E"
     }
   ]
 }
+

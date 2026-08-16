@@ -12,21 +12,23 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const DOMAIN = 0xA11A;
 const TAG = 'SpeedTestVM';
+const FALLBACK_ERROR_LABEL = 'Test failed. Please try again.';
 
 /**
- * ViewModel orchestrating NDT7 tests for the Wearable Test Harness UI
+ * ViewModel orchestrating NDT7 tests for the wearable UI
  */
+@ObservedV2
 export class SpeedTestViewModel {
-  public state: Ndt7State = Ndt7State.IDLE;
-  public statusMessage: string = 'Ready';
-  public downloadMbps: number = 0;
-  public uploadMbps: number = 0;
-  public serverName: string = 'Auto (Locate API)';
-  public serverCity: string = '';
-  public latencyMs: number = 0;
-  public retransPercent: number = 0;
+  @Trace public state: Ndt7State = Ndt7State.IDLE;
+  @Trace public statusMessage: string = 'Ready';
+  @Trace public downloadMbps: number = 0;
+  @Trace public uploadMbps: number = 0;
+  @Trace public serverName: string = 'Auto (Locate API)';
+  @Trace public serverCity: string = '';
+  @Trace public latencyMs: number = 0;
+  @Trace public retransPercent: number = 0;
+  @Trace public userAcceptedDataPolicy: boolean = false;
   public logs: string[] = [];
-  public userAcceptedDataPolicy: boolean = false;
 
   private client: Ndt7Client = new Ndt7Client();
   private onUpdateCallback?: () => void;
@@ -59,6 +61,16 @@ export class SpeedTestViewModel {
     this.notify();
   }
 
+  public async revokePolicy(context: Context): Promise<void> {
+    this.context = context;
+    await ConsentPreferencesManager.getInstance().setPolicyAccepted(context, false);
+    this.userAcceptedDataPolicy = false;
+    if (this.isRunning()) {
+      this.cancelSpeedTest();
+    }
+    this.notify();
+  }
+
   private notify(): void {
     if (this.onUpdateCallback) {
       try {
@@ -72,9 +84,9 @@ export class SpeedTestViewModel {
   public addLog(msg: string): void {
     const timestamp = new Date().toTimeString().split(' ')[0];
     const newEntry = `[${timestamp}] ${msg}`;
-    // Replace array reference immutably so ArkUI state observers detect changes
     this.logs = [newEntry, ...this.logs.slice(0, 49)];
-    this.notify();
+    hilog.debug(DOMAIN, TAG, '%{public}s', msg);
+    // Note: Do NOT call this.notify() here — logs are internal diagnostics and should not trigger UI re-renders
   }
 
   public isRunning(): boolean {
@@ -115,7 +127,12 @@ export class SpeedTestViewModel {
         {
           onStateChange: (state: Ndt7State, msg?: string) => {
             this.state = state;
-            this.statusMessage = msg || state;
+            if (state === Ndt7State.FAILED) {
+              this.applyFriendlyError(msg ? msg : String(state));
+            } else {
+              // statusMessage must stay a string; internal errors must never leak to the UI
+              this.statusMessage = msg ? msg : '';
+            }
             this.notify();
           },
           onServerDiscovery: (url: string) => {
@@ -123,7 +140,9 @@ export class SpeedTestViewModel {
           },
           onServerChosen: (server: LocateServer) => {
             this.serverName = server.machine;
-            this.serverCity = server.location ? `${server.location.city || ''}, ${server.location.country || ''}` : '';
+            const city = server.location ? (server.location.city || '') : '';
+            const country = server.location ? (server.location.country || '') : '';
+            this.serverCity = [city, country].filter((part: string) => part.length > 0).join(', ');
             this.addLog(`Selected Server: ${server.machine} (${this.serverCity})`);
           },
           onDownloadStart: (_url: string) => {
@@ -169,6 +188,7 @@ export class SpeedTestViewModel {
           },
           onError: (err: Error) => {
             this.state = this.client.getState();
+            this.applyFriendlyError(err.message);
             this.addLog(`ERROR: ${err.message}`);
             ScreenAwakeManager.setKeepScreenOn(this.context, false).catch(() => {});
             this.notify();
@@ -181,11 +201,57 @@ export class SpeedTestViewModel {
     } catch (err) {
       this.state = Ndt7State.FAILED;
       const errMsg = err instanceof Error ? err.message : String(err);
-      this.statusMessage = errMsg;
+      this.applyFriendlyError(errMsg);
       this.addLog(`ERROR: ${errMsg}`);
       await ScreenAwakeManager.setKeepScreenOn(this.context, false);
       this.notify();
     }
+  }
+
+  /**
+   * Maps raw technical error text to a short, user-friendly label resolved
+   * from resources. Case-insensitive with priority: timeout before network.
+   */
+  private applyFriendlyError(raw: string): void {
+    const m = raw.toLowerCase();
+    let key = 'status_err_generic';
+    if (m.includes('timed out') || m.includes('timeout')) {
+      key = 'status_err_timeout';
+    } else if (m.includes('policy') || m.includes('consent')) {
+      key = 'status_err_consent';
+    } else if (m.includes('cannot start') || m.includes('invalid_state') || m.includes('in progress')) {
+      key = 'status_err_in_progress';
+    } else if (m.includes('network error while contacting locate') || m.includes('offline')) {
+      key = 'status_err_network';
+    } else if (m.includes('locate') || m.includes('no measurement servers') || m.includes('no servers') || m.includes('all candidate servers failed')) {
+      key = 'status_err_server';
+    } else if (m.includes('network') || m.includes('connect') || m.includes('websocket') || m.includes('closed prematurely') || m.includes('socket')) {
+      key = 'status_err_network';
+    } else if (m.includes('abort') || m.includes('cancel')) {
+      key = 'status_canceled';
+    }
+
+    let label: string = '';
+    if (this.context) {
+      try {
+        label = this.context.resourceManager.getStringByNameSync(key);
+      } catch (_e) {
+        label = '';
+      }
+    }
+    if (label.length === 0) {
+      // Fallback if resourceManager is unavailable or key resolution failed
+      if (this.context) {
+        try {
+          label = this.context.resourceManager.getStringByNameSync('status_err_generic');
+        } catch (_e2) {
+          label = FALLBACK_ERROR_LABEL;
+        }
+      } else {
+        label = FALLBACK_ERROR_LABEL;
+      }
+    }
+    this.statusMessage = label;
   }
 
   public cancelSpeedTest(): void {

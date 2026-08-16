@@ -16,7 +16,6 @@ export class Ndt7Constants {
 
   // Test Timing (per ndt7-protocol.md)
   public static readonly DEFAULT_TEST_DURATION_MS: number = 10000;  // 10 seconds expected
-  public static readonly HARD_WATCHDOG_TIMEOUT_MS: number = 13000;  // 13 seconds hard limit
   public static readonly DEFAULT_CONNECT_TIMEOUT_MS: number = 10000; // 10 seconds handshake
   public static readonly PROGRESS_INTERVAL_MS: number = 100;        // 10 progress updates / second
 

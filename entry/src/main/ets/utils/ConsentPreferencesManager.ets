@@ -22,7 +22,12 @@ export class ConsentPreferencesManager {
 
   private async getStore(context: Context): Promise<preferences.Preferences> {
     if (!this.prefStore) {
-      this.prefStore = await preferences.getPreferences(context, PREFS_NAME);
+      try {
+        this.prefStore = await preferences.getPreferences(context, PREFS_NAME);
+      } catch (err) {
+        hilog.error(DOMAIN, TAG, 'Failed to get preferences store: %{public}s', String(err));
+        throw new Error(`Preferences store unavailable: ${String(err)}`);
+      }
     }
     return this.prefStore;
   }
@@ -39,12 +44,15 @@ export class ConsentPreferencesManager {
   }
 
   public async setPolicyAccepted(context: Context, accepted: boolean): Promise<void> {
+    // Let write failures propagate: callers must not treat consent as saved when it is not.
+    const store = await this.getStore(context);
     try {
-      const store = await this.getStore(context);
       await store.put(KEY_DATA_POLICY, accepted);
       await store.flush();
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'Failed to save policy consent preference: %{public}s', String(err));
+      throw new Error(`Failed to persist consent: ${String(err)}`);
     }
   }
 }
+

@@ -309,14 +309,40 @@ export class UploadRunner {
     }
   }
 
+  private static readonly SEED_BLOCK_SIZE: number = 65536; // 64 KiB
+  private static seedBlock?: Uint8Array;
+
+  private static getSeedBlock(): Uint8Array {
+    if (!UploadRunner.seedBlock) {
+      const block = new Uint8Array(UploadRunner.SEED_BLOCK_SIZE);
+      // Fast linear congruential generator (LCG) to fill with non-zero pseudo-random bytes
+      let state = 0x12345678;
+      for (let i = 0; i < UploadRunner.SEED_BLOCK_SIZE; i++) {
+        state = (state * 1664525 + 1013904223) >>> 0;
+        block[i] = (state & 0xFF) || 0xAA;
+      }
+      UploadRunner.seedBlock = block;
+    }
+    return UploadRunner.seedBlock;
+  }
+
   /**
-   * Helper to allocate an ArrayBuffer with non-zero bytes to prevent compression
+   * Helper to allocate an ArrayBuffer filled 100% with non-zero pseudo-random bytes
+   * to prevent compression by middleboxes or proxies.
    */
   private createPayloadBuffer(size: number): ArrayBuffer {
     const buffer = new ArrayBuffer(size);
     const view = new Uint8Array(buffer);
-    for (let i = 0; i < size; i += 16) {
-      view[i] = (i & 0xFF) || 0xAA;
+    const seed = UploadRunner.getSeedBlock();
+    let offset = 0;
+    while (offset < size) {
+      const chunkLen = Math.min(seed.byteLength, size - offset);
+      if (chunkLen === seed.byteLength) {
+        view.set(seed, offset);
+      } else {
+        view.set(seed.subarray(0, chunkLen), offset);
+      }
+      offset += chunkLen;
     }
     return buffer;
   }

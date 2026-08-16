@@ -134,7 +134,7 @@ export default function localUnitTest() {
       const finalUrl = LocateClient.appendMetadata(rawUrl, metadata);
 
       expect(finalUrl.includes('access_token=xyz123')).assertTrue();
-      expect(finalUrl.includes('client_library_name=ndt7-ohos')).assertTrue();
+      expect(finalUrl.includes('client_library_name=ndt7-arkts')).assertTrue();
       expect(finalUrl.includes('client_library_version=1.0.0')).assertTrue();
       expect(finalUrl.includes('client_name=watch-app')).assertTrue();
       expect(finalUrl.includes('client_version=2.0.0')).assertTrue();

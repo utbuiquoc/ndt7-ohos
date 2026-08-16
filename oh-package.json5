@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "M-Lab NDT7 Speed Test HarmonyOS ArkTS Client Library and Wearable Application",
   "main": "",
-  "author": "M-Lab / HarmonyOS Contributors",
+  "author": "Quoc Bui",
   "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {

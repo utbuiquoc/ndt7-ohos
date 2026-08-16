@@ -28,7 +28,7 @@ export class Ndt7Constants {
   public static readonly MAX_QUERY_STRING_LENGTH: number = 4096;
 
   // Client Identification
-  public static readonly CLIENT_LIBRARY_NAME: string = 'ndt7-ohos';
+  public static readonly CLIENT_LIBRARY_NAME: string = 'ndt7-arkts';
   public static readonly CLIENT_LIBRARY_VERSION: string = '1.0.0';
-  public static readonly USER_AGENT: string = 'ndt7-ohos/1.0.0 (HarmonyOS; ArkTS)';
+  public static readonly USER_AGENT: string = 'ndt7-arkts/1.0.0 (HarmonyOS; ArkTS)';
 }

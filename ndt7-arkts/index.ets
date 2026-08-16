@@ -1,5 +1,5 @@
 /**
- * Public exports for ndt7-ohos HAR Library
+ * Public exports for ndt7-arkts HAR Library
  */
 
 export { Ndt7Client } from './src/main/ets/client/Ndt7Client';

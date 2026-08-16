@@ -1,10 +1,22 @@
 {
   "name": "ndt7-arkts",
   "version": "1.0.0",
-  "description": "Standalone M-Lab NDT7 Speed Test Client Library for HarmonyOS ArkTS",
+  "description": "M-Lab NDT7 speed test client library for HarmonyOS ArkTS (Stage Model). Pure ArkTS, zero UI dependencies.",
   "main": "index.ets",
-  "author": "M-Lab / HarmonyOS Contributors",
+  "author": "Quoc Bui",
   "license": "Apache-2.0",
+  "keywords": [
+    "ndt7",
+    "mlab",
+    "measurement-lab",
+    "speedtest",
+    "network",
+    "harmonyos",
+    "arkts",
+    "websocket"
+  ],
+  "homepage": "https://github.com/utbuiquoc/ndt7-arkts#readme",
+  "repository": "https://github.com/utbuiquoc/ndt7-arkts",
   "dependencies": {},
   "devDependencies": {
     "@ohos/hypium": "1.0.28"

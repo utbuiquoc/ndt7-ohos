@@ -175,7 +175,7 @@ hvigorw --mode module -p module=entry@default assembleHap --no-daemon
 
 # Install and run on connected device/emulator via HDC
 hdc install -r entry\build\default\outputs\default\entry-default-unsigned.hap
-hdc shell aa start -a EntryAbility -b com.mlab.ndt7
+hdc shell aa start -a EntryAbility -b com.kuni.ndt7st
 ```
 
 ---

@@ -7,7 +7,7 @@
 
 An idiomatic, high-performance HarmonyOS ArkTS library implementing the **Measurement Lab (M-Lab) NDT7** speed test protocol ([NDT7 Protocol Specification v0.11.0](https://github.com/m-lab/ndt-server/blob/main/spec/ndt7-protocol.md)).
 
-Designed as a standalone **HarmonyOS HAR library** (`@mlab/ndt7-ohos`) with zero UI dependencies, built entirely using HarmonyOS Network Kit (`@kit.NetworkKit`). Includes a sample Wearable validation test harness app (`entry`).
+Designed as a standalone **HarmonyOS HAR library** (`ndt7-ohos`) with zero UI dependencies, built entirely using HarmonyOS Network Kit (`@kit.NetworkKit`). Includes a sample Wearable validation test harness app (`entry`).
 
 ---
 
@@ -29,7 +29,7 @@ Designed as a standalone **HarmonyOS HAR library** (`@mlab/ndt7-ohos`) with zero
 
 ```
 ndt7-ohos/
-├── ndt7/                                   # Standalone HAR Library (@mlab/ndt7-ohos)
+├── ndt7/                                   # Standalone HAR Library (ndt7-ohos)
 │   ├── index.ets                           # Public barrel export
 │   └── src/
 │       ├── main/ets/
@@ -67,12 +67,18 @@ ndt7-ohos/
 
 ## Installation
 
-Add the dependency to your project's `oh-package.json5`:
+**From the OHPM registry** (once published):
+
+```bash
+ohpm install ndt7-ohos
+```
+
+**From source** (clone this repository, then in your app's `oh-package.json5`):
 
 ```json5
 {
   "dependencies": {
-    "@mlab/ndt7-ohos": "file:../ndt7"
+    "ndt7-ohos": "file:../path/to/ndt7-ohos/ndt7"
   }
 }
 ```
@@ -100,7 +106,7 @@ Ensure `ohos.permission.INTERNET` is declared in your application's `module.json
 `startTest` resolves with an `Ndt7TestResult` (`status: 'completed'`) on success and **throws** an `Ndt7Error` subtype on failure or abortion (`Ndt7AbortError` after `client.abort()`). Always wrap the call:
 
 ```typescript
-import { Ndt7Client, Ndt7Config, Ndt7Error, Ndt7State, Ndt7SpeedSummary, Ndt7TestResult } from '@mlab/ndt7-ohos';
+import { Ndt7Client, Ndt7Config, Ndt7Error, Ndt7State, Ndt7SpeedSummary, Ndt7TestResult } from 'ndt7-ohos';
 
 const client = new Ndt7Client();
 

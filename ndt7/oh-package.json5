@@ -1,5 +1,5 @@
 {
-  "name": "@mlab/ndt7-ohos",
+  "name": "ndt7-ohos",
   "version": "1.0.0",
   "description": "Standalone M-Lab NDT7 Speed Test Client Library for HarmonyOS ArkTS",
   "main": "index.ets",

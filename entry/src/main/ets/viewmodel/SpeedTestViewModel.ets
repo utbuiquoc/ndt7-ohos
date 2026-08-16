@@ -6,7 +6,7 @@ import {
   Ndt7SpeedSummary,
   Ndt7State,
   Ndt7TestResult
-} from '@mlab/ndt7-ohos';
+} from 'ndt7-ohos';
 import { ScreenAwakeManager } from '../utils/ScreenAwakeManager';
 import { ConsentPreferencesManager } from '../utils/ConsentPreferencesManager';
 import { hilog } from '@kit.PerformanceAnalysisKit';

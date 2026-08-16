@@ -1,5 +1,5 @@
 import { SpeedTestViewModel } from '../viewmodel/SpeedTestViewModel';
-import { Ndt7State } from '@mlab/ndt7-ohos';
+import { Ndt7State } from 'ndt7-ohos';
 import { ScreenAwakeManager } from '../utils/ScreenAwakeManager';
 import { LegalInfoView } from './LegalInfoView';
 import { common } from '@kit.AbilityKit';

@@ -7,7 +7,7 @@ import {
   Ndt7EventCallbacks,
   Ndt7State,
   Ndt7TestResult
-} from '@mlab/ndt7-ohos';
+} from 'ndt7-ohos';
 
 class AbortErrorStubClient extends Ndt7Client {
   public async startTest(_config?: Ndt7Config, _callbacks?: Ndt7EventCallbacks): Promise<Ndt7TestResult> {

@@ -6,6 +6,6 @@
   "author": "M-Lab / HarmonyOS Contributors",
   "license": "Apache-2.0",
   "dependencies": {
-    "@mlab/ndt7-ohos": "file:../ndt7"
+    "ndt7-ohos": "file:../ndt7"
   }
 }

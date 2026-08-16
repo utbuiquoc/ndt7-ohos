@@ -1,5 +1,6 @@
 import {
   LocateServer,
+  Ndt7AbortError,
   Ndt7Client,
   Ndt7Measurement,
   Ndt7SpeedSummary,
@@ -33,6 +34,16 @@ export class SpeedTestViewModel {
   private client: Ndt7Client = new Ndt7Client();
   private onUpdateCallback?: () => void;
   private context?: Context;
+
+  /**
+   * Allows tests to inject a stubbed Ndt7Client; production callers
+   * keep using the parameterless constructor.
+   */
+  constructor(client?: Ndt7Client) {
+    if (client) {
+      this.client = client;
+    }
+  }
 
   public setContext(context: Context): void {
     this.context = context;
@@ -199,13 +210,37 @@ export class SpeedTestViewModel {
         }
       );
     } catch (err) {
-      this.state = Ndt7State.FAILED;
-      const errMsg = err instanceof Error ? err.message : String(err);
-      this.applyFriendlyError(errMsg);
-      this.addLog(`ERROR: ${errMsg}`);
+      if (err instanceof Ndt7AbortError || this.client.getState() === Ndt7State.CANCELED || this.state === Ndt7State.CANCELED) {
+        this.state = Ndt7State.CANCELED;
+        this.statusMessage = this.resolveStatusLabel('status_canceled', 'Canceled');
+        this.addLog('Speed test was canceled');
+      } else {
+        this.state = Ndt7State.FAILED;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.applyFriendlyError(errMsg);
+        this.addLog(`ERROR: ${errMsg}`);
+      }
       await ScreenAwakeManager.setKeepScreenOn(this.context, false);
       this.notify();
     }
+  }
+
+  /**
+   * Resolves a status label from resources with a hardcoded fallback,
+   * mirroring the resolution pattern used by applyFriendlyError.
+   */
+  private resolveStatusLabel(key: string, fallback: string): string {
+    if (this.context) {
+      try {
+        const label = this.context.resourceManager.getStringByNameSync(key);
+        if (label.length > 0) {
+          return label;
+        }
+      } catch (_e) {
+        // Fall through to the hardcoded fallback
+      }
+    }
+    return fallback;
   }
 
   /**
